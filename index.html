@@ -1137,7 +1137,7 @@ document.getElementById('btnDaily').onclick=startDaily;
 document.getElementById('btnMap').onclick=openMap;
 
 /* ---- online leaderboard (Supabase REST) — paste your project URL + anon key into LB to go live ---- */
-const LB={ url:'', key:'' };   // url:'https://YOURPROJECT.supabase.co'  key:'<anon public key>'
+const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 let lbBoard='daily', lbOpenFlag=false;
 function lbOn(){ return !!(LB.url&&LB.key); }
 function lbHeaders(){ return {'apikey':LB.key,'Authorization':'Bearer '+LB.key,'Content-Type':'application/json'}; }
