@@ -215,25 +215,74 @@ function drawMotes(c,mode,n){ n=n||18; ctx.save(); ctx.globalCompositeOperation=
   ctx.globalAlpha=0.35+0.4*Math.abs(Math.sin(runDist*0.012+i)); const rr=(mode==='still'?1.6:2.6)+Math.sin(i)*0.6;
   ctx.beginPath(); ctx.arc(x,y,rr,0,Math.PI*2); ctx.fill(); }
   ctx.restore(); }
+/* signature set-pieces — one hero landmark per biome (parallax-scrolled like the ship) */
+function drawPeaks(baseY,h,fill,par){ ctx.fillStyle=fill; const seg=190; const off=(runDist*par)%seg;
+  ctx.beginPath(); ctx.moveTo(-seg,baseY);
+  for(let i=-1;i<VW/seg+2;i++){ const x=i*seg-off; ctx.lineTo(x+seg*0.5, baseY-h-((i*53)%40)); ctx.lineTo(x+seg, baseY); }
+  ctx.lineTo(VW+seg,baseY); ctx.closePath(); ctx.fill(); }
+function drawVolcano(x){ if(x<-240||x>VW+240)return; ctx.save(); ctx.translate(x,GY); const pulse=0.5+0.5*Math.sin(runDist*0.004);
+  ctx.fillStyle='rgba(30,12,8,0.92)'; ctx.beginPath(); ctx.moveTo(-170,0); ctx.lineTo(-34,-206); ctx.lineTo(34,-206); ctx.lineTo(170,0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(20,8,6,0.92)'; ctx.beginPath(); ctx.moveTo(-170,0); ctx.lineTo(-34,-206); ctx.lineTo(-8,-206); ctx.lineTo(-70,0); ctx.closePath(); ctx.fill();   // shaded face
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  const cg=ctx.createRadialGradient(0,-204,4,0,-204,130); cg.addColorStop(0,'rgba(255,150,50,'+(0.55+0.35*pulse)+')'); cg.addColorStop(1,'rgba(255,60,0,0)'); ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,-204,130,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.strokeStyle='rgba(255,95,25,'+(0.5+0.35*pulse)+')'; ctx.lineWidth=3; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-10,-200); ctx.lineTo(-58,-30); ctx.moveTo(12,-200); ctx.lineTo(66,-20); ctx.moveTo(0,-200); ctx.lineTo(8,-60); ctx.stroke();
+  ctx.fillStyle='rgba(40,28,30,0.5)'; for(let i=0;i<4;i++){ const sy=-210-i*48-((runDist*0.06)%48); ctx.beginPath(); ctx.arc(Math.sin(i+runDist*0.002)*22,sy,24+i*9,0,Math.PI*2); ctx.fill(); }
+  ctx.restore(); }
+function drawTower(x,h){ ctx.save(); ctx.translate(x,GY);
+  ctx.beginPath(); ctx.moveTo(-22,0); ctx.lineTo(-17,-h); ctx.lineTo(-6,-h+12); ctx.lineTo(-11,-h+34); ctx.lineTo(5,-h+6); ctx.lineTo(9,-h-16); ctx.lineTo(17,-h+22); ctx.lineTo(22,0); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,120,150,0.5)';
+  for(let yy=-h+40; yy<-20; yy+=34){ ctx.fillRect(-6,yy,4,7); ctx.fillRect(4,yy+12,4,7); } ctx.restore(); ctx.restore(); }
+function drawColossus(x){ if(x<-360||x>VW+360)return; ctx.save(); ctx.translate(x,GY);
+  ctx.fillStyle='rgba(42,36,46,0.92)';
+  ctx.save(); ctx.translate(-46,-2); ctx.rotate(-0.22);                       // toppled head
+  ctx.beginPath(); ctx.ellipse(0,-46,42,54,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(28,24,34,0.92)'; ctx.fillRect(-32,-62,64,11);            // brow
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(190,130,255,0.55)';
+  ctx.beginPath(); ctx.arc(-13,-48,5,0,Math.PI*2); ctx.arc(15,-46,5,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.restore();
+  ctx.fillStyle='rgba(42,36,46,0.92)';                                         // outstretched hand further along
+  ctx.beginPath(); ctx.moveTo(126,0); ctx.lineTo(150,-34); ctx.lineTo(166,-30); ctx.lineTo(172,-8); ctx.lineTo(184,-16); ctx.lineTo(190,2); ctx.lineTo(200,-8); ctx.lineTo(204,4); ctx.lineTo(126,4); ctx.closePath(); ctx.fill();
+  ctx.restore(); }
+function drawAurora(){ ctx.save(); ctx.globalCompositeOperation='lighter'; const cols=['rgba(110,200,180,0.07)','rgba(150,130,255,0.07)','rgba(205,140,220,0.06)'];
+  for(let b=0;b<3;b++){ ctx.fillStyle=cols[b]; ctx.beginPath();
+    for(let x=0;x<=VW;x+=22){ const y=70+b*34+Math.sin(x*0.011+runDist*0.003+b*1.3)*24; (x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); }
+    for(let x=VW;x>=0;x-=22){ const y=112+b*34+Math.sin(x*0.011+runDist*0.003+b*1.3)*24; ctx.lineTo(x,y); } ctx.closePath(); ctx.fill(); }
+  ctx.restore(); }
+function drawLeviathan(x,y){ if(x<-320||x>VW+320)return; ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.translate(x,y+Math.sin(runDist*0.0018+x*0.01)*12);
+  const g=ctx.createLinearGradient(-150,0,150,0); g.addColorStop(0,'rgba(180,160,255,0)'); g.addColorStop(0.5,'rgba(205,190,255,0.22)'); g.addColorStop(1,'rgba(180,160,255,0)'); ctx.fillStyle=g;
+  ctx.beginPath(); ctx.moveTo(-150,0); ctx.quadraticCurveTo(-40,-44,66,-20); ctx.quadraticCurveTo(118,-10,150,-34); ctx.quadraticCurveTo(126,6,66,20); ctx.quadraticCurveTo(-40,42,-150,0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(120,-8); ctx.lineTo(158,-38); ctx.lineTo(156,26); ctx.closePath(); ctx.fill();   // tail fluke
+  ctx.beginPath(); ctx.moveTo(-30,14); ctx.lineTo(-54,52); ctx.lineTo(-2,24); ctx.closePath(); ctx.fill();      // lower fin
+  ctx.fillStyle='rgba(225,215,255,0.7)'; ctx.beginPath(); ctx.arc(42,-8,3.2,0,Math.PI*2); ctx.fill();           // eye
+  for(let i=0;i<7;i++){ ctx.globalAlpha=0.25+0.22*Math.sin(runDist*0.01+i); ctx.beginPath(); ctx.arc(-66+i*26,-18+Math.sin(i)*5,2,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1;
+  ctx.restore(); }
 function drawBiomeProps(P){ const idx=Math.min(BIOMES.length-1,biomeIdx); const acc=BIOME_ACC[idx]; const off=runDist*0.12;
-  if(idx===0){ // CINDERFIELDS — pulsing fire horizon, burnt forest, rising sparks
+  if(idx===0){ // CINDERFIELDS — erupting volcano, burnt forest, ember storm
+    drawPeaks(GY,72,'rgba(28,11,7,0.7)',0.05);                                            // far volcanic ridge
+    const vw=940; for(let i=-1;i<VW/vw+2;i++){ drawVolcano(i*vw-((runDist*0.085)%vw)+220); }   // ⛰ signature volcano
     const pulse=0.12+0.06*Math.sin(runDist*0.006); const hg=ctx.createRadialGradient(VW*0.5,GY,10,VW*0.5,GY,380);
     hg.addColorStop(0,'rgba(255,90,20,'+pulse+')'); hg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=hg; ctx.fillRect(0,GY-280,VW,300);
     ctx.fillStyle='rgba(36,11,6,0.72)'; const tw=210; for(let i=-1;i<VW/tw+2;i++){ const x=i*tw-(off%tw)+50; drawDeadTree(x,64+((i*53)%46)); }
-    drawMotes(acc,'up',26);
+    drawMotes(acc,'up',30);
   } else if(idx===1){ // SUNKEN GROVE — big sunken ships, swaying kelp, god-rays, bubbles
+    drawPeaks(GY,54,'rgba(8,30,24,0.55)',0.045);                                          // far reef shelf for depth
     drawGodRays();
     const sw=780; for(let i=-1;i<VW/sw+2;i++){ const x=i*sw-(off%sw)+160; drawShip(x,GY-46); }
     ctx.fillStyle='rgba(30,80,46,0.62)'; const kw=150; for(let i=-1;i<VW/kw+2;i++){ const x=i*kw-((runDist*0.2)%kw)+20; drawKelp(x,74+((i*41)%72)); }
     drawMotes('#cfeede','up',28);
-  } else if(idx===2){ // ASHEN REACH — broken pillar skyline, dense falling ash
-    ctx.fillStyle='rgba(28,20,28,0.72)'; const pw=160; for(let i=-1;i<VW/pw+2;i++){ const x=i*pw-(off%pw)+30; drawPillar(x,120+((i*67)%160)); }
-    drawMotes(acc,'down',34);
-  } else { // THE STILLNESS — pale void-moon, twinkling stars, drifting monoliths
+  } else if(idx===2){ // ASHEN REACH — fallen colossus, shattered towers, dense ash
+    drawPeaks(GY,96,'rgba(22,18,26,0.6)',0.04);                                           // far mountains
+    ctx.fillStyle='rgba(28,20,28,0.72)'; const pw=215; for(let i=-1;i<VW/pw+2;i++){ const x=i*pw-(off%pw)+30; drawTower(x,150+((i*67)%150)); }   // shattered towers
+    const cw=1040; for(let i=-1;i<VW/cw+2;i++){ drawColossus(i*cw-((runDist*0.092)%cw)+320); }   // 🗿 signature fallen colossus
+    drawMotes(acc,'down',36);
+  } else { // THE STILLNESS — drifting leviathan, aurora, void-moon, stars, monoliths
+    drawAurora();
     const m=ctx.createRadialGradient(VW*0.72,140,10,VW*0.72,140,155); m.addColorStop(0,'rgba(228,218,255,0.5)'); m.addColorStop(1,'rgba(228,218,255,0)');
     ctx.fillStyle=m; ctx.beginPath(); ctx.arc(VW*0.72,140,155,0,Math.PI*2); ctx.fill();
     ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='#fff';
     for(let i=0;i<42;i++){ const sx=(i*131)%VW, sy=(i*71)%(GY-60)+20; ctx.globalAlpha=0.25+0.55*Math.abs(Math.sin(runDist*0.01+i*1.7)); ctx.fillRect(sx,sy,1.7,1.7); } ctx.restore();
+    const lw=1120; for(let i=-1;i<VW/lw+2;i++){ drawLeviathan(i*lw-((runDist*0.05)%lw)+240, 180+((i*53)%80)); }   // 🐋 signature leviathan
     ctx.fillStyle='rgba(200,190,255,0.55)'; const fw=340; for(let i=-1;i<VW/fw+2;i++){ const x=i*fw-(off%fw)+90; const yy=100+((i*97)%180)+Math.sin(runDist*0.002+i)*12; drawSlab(x,yy,90+((i*31)%70)); } } }
 
 /* ---- skins & upgrades ---- */
