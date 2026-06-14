@@ -88,7 +88,7 @@
 <div id="shop">
   <h2>EMBER SHOP</h2>
   <div class="wallet" id="shopWallet"></div>
-  <div class="tabs"><div class="tab on" data-tab="skins">SKINS</div><div class="tab" data-tab="upg">UPGRADES</div></div>
+  <div class="tabs"><div class="tab on" data-tab="chars">CHARACTERS</div><div class="tab" data-tab="upg">UPGRADES</div><div class="tab" data-tab="skins">SKINS</div></div>
   <div class="rows" id="shopRows"></div>
   <button class="close" id="closeShop">CLOSE</button>
 </div>
@@ -238,6 +238,17 @@ const SKINS={ ember:{name:'Ember (default)',cost:0,wick:null,glow:null},
   ashlight:{name:'Ashlight',cost:260,wick:'#ffffff',glow:'#bcd0e0'},
   violet:{name:'Violet Wane',cost:450,wick:'#f4eaff',glow:'#b07aff'},
   gold:{name:'Goldflame',cost:800,wick:'#fff3c0',glow:'#ffc040'} };
+const CHARS=[
+ {id:'ember', name:'Wick',   cost:0,    wick:null,      glow:null,      desc:'The original ember.'},
+ {id:'drift', name:'Drift',  cost:700,  wick:'#dff7ff', glow:'#7fd9ff', desc:'Double jump — one extra leap in mid-air'},
+ {id:'ward',  name:'Ward',   cost:900,  wick:'#e7fff0', glow:'#9dffd0', desc:'Begins every run with a shield'},
+ {id:'flux',  name:'Flux',   cost:1100, wick:'#ffe6ef', glow:'#ff7aa0', desc:'Combo multiplier builds 25% faster'},
+ {id:'gilde', name:'Gilde',  cost:1400, wick:'#fff3c0', glow:'#ffc040', desc:'Every ember is worth +1 extra'} ];
+let airJumpsMax=0;
+function applyCharacter(){ const c=CHARS.find(x=>x.id===rec.char)||CHARS[0];
+  airJumpsMax = (c.id==='drift')?1:0; p.airJumps=airJumpsMax;
+  if(c.id==='ward') shield++;
+  if(c.id==='flux') comboGain*=1.25; }
 const UPG={ spark:{name:'Spark — head start',max:5,desc:'+40 m head start per level',cost:l=>60+l*70},
   magnet:{name:'Lodestone — magnet',max:4,desc:'+1.5 s magnet duration per level',cost:l=>90+l*90},
   shield:{name:'Emberguard — start shield',max:2,desc:'Begin each run with +1 shield',cost:l=>240+l*240},
@@ -252,7 +263,7 @@ let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0;   // dynamic events: invert / frenzy / surge
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
 let embersRun=0, magnetT=0, overdriveT=0, shield=0, magnetExtra=0;
-const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0 };
+const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0,airJumps:0 };
 let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0;
 let pickups=[], particles=[];
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -267,10 +278,10 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.fl
 const RKEY='emberwane-run-records-v2';
 let rec={ bestDist:0,bestTime:0,bestStreak:0,total:0,dayKey:'',dayBest:0,pace:[],
   embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0},
-  runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false };
+  runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false, char:'ember', chars:['ember'] };
 function loadRec(){ try{ const r=JSON.parse(localStorage.getItem(RKEY)); if(r){ rec=Object.assign(rec,r);
   rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
-  if(!Array.isArray(rec.achievements))rec.achievements=[]; } }catch(e){} }
+  if(!Array.isArray(rec.achievements))rec.achievements=[]; if(!rec.chars||!rec.chars.length)rec.chars=['ember']; if(!rec.char)rec.char='ember'; } }catch(e){} }
 function saveRec(){ try{ localStorage.setItem(RKEY,JSON.stringify(rec)); }catch(e){} }
 function today(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 loadRec(); muted=!!rec.muted;
@@ -408,7 +419,7 @@ function startRun(){
   combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; paused=false;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0;
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
-  applyUpgrades();
+  applyUpgrades(); applyCharacter();
   p.wx=ANCHOR; p.y=GY; p.vy=0; p.onGround=true; p.coyote=0; p.jumpBuf=0; p.jumpHeld=false; p.cutDone=true; p.run=0; p.invuln=0;
   segs=[]; genX=0; lastAspect='bloom'; needRest=false; sincePower=0; pickups=[]; particles=[];
   pushSeg(1200,true,true,{kind:'rest'}); genAhead(); setDrone();
@@ -472,15 +483,18 @@ addEventListener('blur',()=>{ p.jumpHeld=false; });
 /* ---- pickups update ---- */
 function collectPickups(dt,ods){ const magnet=magnetT>0||ods;
   const yc=p.y-16;   // collect from Wick's chest, not his feet
-  for(const k of pickups){ if(k.got)continue; k.bob+=dt;
+  // boon groups: reaching the column ALWAYS grabs the orb nearest your height — pick by where you are, no missed pick
+  const bgrp={}; for(const k of pickups){ if(k.kind==='boon'&&!k.got)(bgrp[k.grp]=bgrp[k.grp]||[]).push(k); }
+  for(const gid in bgrp){ const arr=bgrp[gid]; if(Math.abs(p.wx-arr[0].wx)<38){ let best=arr[0]; for(const o of arr) if(Math.abs(o.y-yc)<Math.abs(best.y-yc)) best=o;
+    for(const o of arr) o.got=true; applyBoon(best.boon);
+    for(let i=0;i<22;i++)particles.push({x:ANCHOR,y:best.y,vx:rnd(-190,190),vy:rnd(-210,30),life:.6,max:.6,r:rnd(2,3),c:'#ffd9a0',g:120}); } }
+  for(const k of pickups){ if(k.got||k.kind==='boon')continue; k.bob+=dt;
     let dx=k.wx-p.wx, dy=k.y-yc, dist=Math.hypot(dx,dy);
     if(k.kind==='ember'&&magnet&&dist<210){ k.wx-=dx*Math.min(1,dt*9); k.y-=dy*Math.min(1,dt*9); dx=k.wx-p.wx;dy=k.y-yc;dist=Math.hypot(dx,dy); }
-    const cr=k.kind==='ember'?(ods?46:26):(k.kind==='boon'?30:32);
+    const cr=k.kind==='ember'?(ods?46:26):32;
     if(dist<cr){ k.got=true;
-      if(k.kind==='ember'){ embersRun+=(1+boons.gold); mprog('embers',1); sfx('ember');
+      if(k.kind==='ember'){ embersRun+=(1+boons.gold+(rec.char==='gilde'?1:0)); mprog('embers',1); sfx('ember');
         for(let i=0;i<6;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-70,70),vy:rnd(-90,-10),life:.4,max:.4,r:rnd(1,2),c:'#ffd9a0',g:120}); }
-      else if(k.kind==='boon'){ applyBoon(k.boon); for(const o of pickups){ if(o.grp===k.grp && o!==k) o.got=true; }   // grab one boon -> the others vanish
-        for(let i=0;i<22;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-190,190),vy:rnd(-210,30),life:.6,max:.6,r:rnd(2,3),c:'#ffd9a0',g:120}); }
       else { activatePower(k.kind); flash=0.3;
         for(let i=0;i<16;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-150,150),vy:rnd(-160,40),life:.6,max:.6,r:rnd(2,3),c:powColor(k.kind),g:120}); } }
   }
@@ -543,7 +557,7 @@ function update(dt){
       if(p.vy>0&&p.y>=GY){ p.y=GY; p.vy=0; p.onGround=true; p.coyote=T.coyote; } } }
   else {
     const solid=solidAt(p.wx);
-    if(p.onGround){ if(solid){ p.y=GY; p.vy=0; p.coyote=T.coyote; } else p.onGround=false; }
+    if(p.onGround){ if(solid){ p.y=GY; p.vy=0; p.coyote=T.coyote; p.airJumps=airJumpsMax; } else p.onGround=false; }
     if(!p.onGround){ p.coyote-=dt; p.vy+=T.G*Math.pow(0.85,boons.feather)*dt;
       if(!p.jumpHeld&&p.vy<0&&!p.cutDone){ p.vy*=T.cut; p.cutDone=true; }
       if(bothGapAt(p.wx)) sawGap=true;
@@ -553,8 +567,11 @@ function update(dt){
         if(sawGap){ nearMiss++; mprog('clutch',1); const ls=segAt(p.wx); const perfect=ls?(p.wx-ls.x0)<18:false;
           if(perfect)pushFloat('PERFECT LAND','#9dffd0'); addCombo(perfect); } sawGap=false; }
       else p.y=ny; }
-    if(p.jumpBuf>0){ p.jumpBuf-=dt; if(p.onGround||p.coyote>0){ p.vy=-T.jumpV; p.onGround=false; p.coyote=0; p.jumpBuf=0; p.cutDone=false; sfx('jump');
-      const nh=nextHole(); if(nh){ const gap=nh.x0-p.wx; if(gap<14&&gap>-10){ pushFloat('PERFECT JUMP','#ffd9a0'); addCombo(true); } } } }
+    if(p.jumpBuf>0){ p.jumpBuf-=dt;
+      if(p.onGround||p.coyote>0){ p.vy=-T.jumpV; p.onGround=false; p.coyote=0; p.jumpBuf=0; p.cutDone=false; p.airJumps=airJumpsMax; sfx('jump');
+        const nh=nextHole(); if(nh){ const gap=nh.x0-p.wx; if(gap<14&&gap>-10){ pushFloat('PERFECT JUMP','#ffd9a0'); addCombo(true); } } }
+      else if(p.airJumps>0){ p.airJumps--; p.vy=-T.jumpV*0.92; p.jumpBuf=0; p.cutDone=false; sfx('jump');   // double jump (Drift)
+        for(let i=0;i<8;i++)particles.push({x:ANCHOR,y:p.y,vx:rnd(-90,90),vy:rnd(20,100),life:.4,max:.4,r:rnd(1,2),c:'#7fd9ff',g:60}); } }
     // obstacle collisions
     const s=segAt(p.wx);
     if(s && p.invuln<=0){ if(s.kind==='spike'&&p.onGround&&Math.abs(p.wx-s.spikeX)<(s.spikeW/2+8)) hit();
@@ -621,7 +638,8 @@ function drawPickups(){ for(const k of pickups){ const x=k.wx-runDist; if(x<-30|
       ctx.beginPath(); ctx.arc(x,y,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle=c; ctx.font='bold 14px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(k.kind==='magnet'?'M':k.kind==='shield'?'S':'O',x,y+1); ctx.textBaseline='alphabetic'; } } }
-function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const wc=(sk.wick)||P.wick, gc=(sk.glow)||P.glow;
+function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=CHARS.find(c=>c.id===rec.char)||CHARS[0];
+  const wc=(ch&&ch.wick)||sk.wick||P.wick, gc=(ch&&ch.glow)||sk.glow||P.glow;
   ctx.save(); ctx.translate(x,y); const t=p.run; const bob=state==='run'?Math.sin(t*4)*2:0;
   ctx.globalCompositeOperation='lighter'; const gg=ctx.createRadialGradient(0,-16,2,0,-16,34);
   gg.addColorStop(0,gc); gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,-16,34,0,Math.PI*2); ctx.fill();
@@ -712,14 +730,14 @@ function draw(){ const B=biome(); const P=B[aspect]; const IN=B[aspect==='bloom'
   if(eventKind==='surge'){ const adv=VW*(0.22+0.18*Math.abs(Math.sin(runDist*0.015))); const g=ctx.createLinearGradient(0,0,adv,0);
     g.addColorStop(0,'rgba(18,6,28,0.8)'); g.addColorStop(1,'rgba(18,6,28,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,adv,VH); }
   if(eventKind==='frenzy'){ ctx.fillStyle='rgba(255,200,90,'+(0.06+0.04*Math.sin(p.run*30))+')'; ctx.fillRect(0,0,VW,VH); }
-  if(Math.abs(flipY)<0.7){ ctx.fillStyle='rgba(240,248,255,'+((0.7-Math.abs(flipY))*0.62)+')'; ctx.fillRect(0,0,VW,VH); }   // cover the inversion collapse with a flash
+  if(Math.abs(flipY)<0.55){ const fa=Math.min(0.92,(0.55-Math.abs(flipY))*2.3); ctx.fillStyle='rgba(245,250,255,'+fa+')'; ctx.fillRect(0,0,VW,VH); }   // cover the inversion collapse so there's no blank frame
   if(state==='run'){ drawHUD(); drawAreaCard(); }
   if(state==='title') drawTitle();
   if(state==='dead') drawDead();
   ctx.fillStyle='rgba(255,255,255,.25)'; ctx.font='11px Trebuchet MS'; ctx.textAlign='left'; ctx.fillText(muted?'🔇 M':'🔊 M',12,VH-12); }
 
 /* ---- shop UI (DOM) ---- */
-let shopOpen=false, shopTab='skins';
+let shopOpen=false, shopTab='chars';
 function syncButtons(){ const anyOv=shopOpen||historyOpen||paused||drafting;
   document.getElementById('openShop').style.display=(state!=='run'&&!anyOv)?'block':'none';
   document.getElementById('btnDaily').style.display=(state==='title'&&!anyOv)?'block':'none';
@@ -756,7 +774,16 @@ document.getElementById('btnDaily').onclick=startDaily;
 function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+rec.embers+' embers';
   document.querySelectorAll('#shop .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===shopTab));
   const rows=document.getElementById('shopRows'); rows.innerHTML='';
-  if(shopTab==='skins'){ for(const id in SKINS){ const s=SKINS[id]; const owned=rec.skins.includes(id); const sel=rec.skin===id;
+  if(shopTab==='chars'){ for(const c of CHARS){ const owned=rec.chars.includes(c.id); const sel=rec.char===c.id;
+    const row=document.createElement('div'); row.className='srow';
+    row.innerHTML='<div class="gem" style="color:'+(c.glow||'#ff7a2a')+';background:'+(c.glow||'#ff7a2a')+'"></div><div class="info"><div class="n">'+c.name+'</div><div class="d">'+c.desc+'</div></div>';
+    const b=document.createElement('button');
+    if(sel){ b.textContent='SELECTED'; b.className='sel'; }
+    else if(owned){ b.textContent='SELECT'; b.className='owned'; b.onclick=()=>{ rec.char=c.id; saveRec(); renderShop(); }; }
+    else if(rec.embers>=c.cost){ b.textContent='BUY ✦'+c.cost; b.onclick=()=>{ rec.embers-=c.cost; rec.chars.push(c.id); rec.char=c.id; saveRec(); renderShop(); }; }
+    else { b.textContent='✦'+c.cost; b.className='cant'; }
+    row.appendChild(b); rows.appendChild(row); } }
+  else if(shopTab==='skins'){ for(const id in SKINS){ const s=SKINS[id]; const owned=rec.skins.includes(id); const sel=rec.skin===id;
     const row=document.createElement('div'); row.className='srow';
     row.innerHTML='<div class="gem" style="color:'+(s.glow||'#ff7a2a')+';background:'+(s.glow||'#ff7a2a')+'"></div><div class="info"><div class="n">'+s.name+'</div><div class="d">'+(s.cost?('✦ '+s.cost):'free')+'</div></div>';
     const b=document.createElement('button');
