@@ -353,7 +353,9 @@ let boons={}, drafting=false, nextDraftM=250;
 function resetBoons(){ boons={feather:0,magnet:0,heart:0,momentum:0,gold:0,overcharge:0,swift:0,revive:0,mirrorstep:0,doubletake:0}; }
 resetBoons();
 function spawnBoonOrbs(){ // NO pause — 3 boons appear as orbs at different heights; grab the one you want by where you jump
-  const pick=shuffle(BOONS.map(b=>b.id)).slice(0,3); const gid='b'+Math.round(runDist);
+  const rng = dailyMode ? TRE : Math.random;                                   // daily: seed boon choices too, so the run is identical for everyone
+  const ids = BOONS.map(b=>b.id); for(let i=ids.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [ids[i],ids[j]]=[ids[j],ids[i]]; }
+  const pick=ids.slice(0,3); const gid='b'+Math.round(runDist);
   const heights=[GY-24, GY-84, GY-138];   // low = run through it · mid = small jump · high = full jump
   const baseX=runDist+ANCHOR+VW*0.62;
   for(let i=0;i<3;i++){ pickups.push({wx:baseX+i*10, y:heights[i], kind:'boon', boon:pick[i], grp:gid, got:false, bob:Math.random()*6}); }
@@ -462,7 +464,7 @@ const ETERNAL={ everburning:{name:'Everburning — reborn rich',max:4,desc:'Star
   memory:{name:'Deep Memory — retained mastery',max:3,desc:'Keep this many upgrade ranks through ascension',cost:l=>2+l*2},
   bright:{name:'Bright Soul — brighter rebirth',max:5,desc:'+5% to your ascension ember bonus per level',cost:l=>2+l},
   beaconkeeper:{name:'Beaconkeeper — eternal flame',max:1,desc:'Beacons stay lit through ascension',cost:l=>6} };
-function ascReady(){ return (rec.beacons||0)>=BEACONS.length; }                    // light all beacons to unlock the altar
+function ascReady(){ return (rec.beacons||0)>=BEACONS.length && (rec.cycleEarned||0)>0; }   // all beacons lit AND earned embers since last rebirth (blocks Beaconkeeper re-ascend spam)
 function ascHearts(){ return 2+(rec.asc||0)+Math.floor((rec.cycleEarned||0)/4000); }
 let newUnlock='', ascPending=false;
 function ascend(){ if(!ascReady())return 0;
@@ -806,7 +808,7 @@ function drawHUD(){ const dm=Math.floor(meters);
   ctx.fillStyle=mc; ctx.fillText('×'+mult.toFixed(1),VW/2,80);
   ctx.fillStyle='#ff9a4d'; ctx.fillText('↺ '+streak,VW/2+110,80);
   // combo flow meter — the heart of the skill loop
-  if(combo>=2){ const fp=Math.max(0,flowT/FLOW_MAX); const cc=combo>=20?'#ff5a3a':combo>=10?'#ff9a4d':'#ffd9a0';
+  if(combo>=2){ const fp=Math.max(0,Math.min(1,flowT/flowMax)); const cc=combo>=20?'#ff5a3a':combo>=10?'#ff9a4d':'#ffd9a0';
     ctx.fillStyle=cc; ctx.font='bold '+(26+Math.min(14,combo*0.6))+'px Trebuchet MS'; ctx.fillText(combo+'x  FLOW',VW/2,128);
     ctx.fillStyle='rgba(255,255,255,.15)'; ctx.fillRect(VW/2-70,138,140,5); ctx.fillStyle=cc; ctx.fillRect(VW/2-70,138,140*fp,5); }
   // embers
