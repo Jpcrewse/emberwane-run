@@ -92,7 +92,7 @@
 <div id="shop">
   <h2>EMBER SHOP</h2>
   <div class="wallet" id="shopWallet"></div>
-  <div class="tabs"><div class="tab on" data-tab="chars">CHARACTERS</div><div class="tab" data-tab="upg">UPGRADES</div><div class="tab" data-tab="skins">SKINS</div></div>
+  <div class="tabs"><div class="tab on" data-tab="chars">CHARACTERS</div><div class="tab" data-tab="upg">UPGRADES</div><div class="tab" data-tab="skins">SKINS</div><div class="tab" data-tab="eternal">ETERNAL</div></div>
   <div class="rows" id="shopRows"></div>
   <button class="close" id="closeShop">CLOSE</button>
 </div>
@@ -247,12 +247,16 @@ const CHARS=[
  {id:'drift', name:'Drift',  cost:2000, wick:'#dff7ff', glow:'#7fd9ff', desc:'Double jump — one extra leap in mid-air'},
  {id:'ward',  name:'Ward',   cost:3000, wick:'#e7fff0', glow:'#9dffd0', desc:'Begins every run with a shield'},
  {id:'flux',  name:'Flux',   cost:4500, wick:'#ffe6ef', glow:'#ff7aa0', desc:'Combo multiplier builds 25% faster'},
- {id:'gilde', name:'Gilde',  cost:6500, wick:'#fff3c0', glow:'#ffc040', desc:'Every ember is worth +1 extra'} ];
+ {id:'gilde', name:'Gilde',  cost:6500, wick:'#fff3c0', glow:'#ffc040', desc:'Every ember is worth +1 extra'},
+ {id:'ash',   name:'Ashwalker', cost:0, secret:true, wick:'#4a4250', glow:'#c08a5a', desc:'SECRET — starts each run blazing in Overdrive'},
+ {id:'phoenix',name:'Reborn',   cost:0, secret:true, wick:'#ffd0c0', glow:'#ff5a3a', desc:'SECRET — rises with a Second Wind every run'} ];
 let airJumpsMax=0;
 function applyCharacter(){ const c=CHARS.find(x=>x.id===rec.char)||CHARS[0];
   airJumpsMax = (c.id==='drift')?1:0; p.airJumps=airJumpsMax;
   if(c.id==='ward') shield++;
-  if(c.id==='flux') comboGain*=1.25; }
+  if(c.id==='flux') comboGain*=1.25;
+  if(c.id==='ash') overdriveT=T.odDur;        // Ashwalker bursts out of the gate
+  if(c.id==='phoenix') boons.revive=1; }       // Reborn carries a Second Wind
 /* costs scale geometrically (~×2 per level) — the first rank is cheap, mastery is a long grind */
 const UPG={ spark:{name:'Spark — head start',max:5,desc:'+40 m head start per level',cost:l=>Math.round(120*Math.pow(1.85,l))},
   magnet:{name:'Lodestone — magnet',max:4,desc:'+1.5 s magnet duration per level',cost:l=>Math.round(160*Math.pow(1.9,l))},
@@ -285,9 +289,11 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.fl
 const RKEY='emberwane-run-records-v2';
 let rec={ bestDist:0,bestTime:0,bestStreak:0,total:0,dayKey:'',dayBest:0,pace:[],
   embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0},
-  runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false, char:'ember', chars:['ember'], bestDepth:0, beacons:0 };
+  runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false, char:'ember', chars:['ember'], bestDepth:0, beacons:0,
+  asc:0, hearts:0, cycleEarned:0, eternal:{everburning:0,memory:0,bright:0,beaconkeeper:0} };
 function loadRec(){ try{ const r=JSON.parse(localStorage.getItem(RKEY)); if(r){ rec=Object.assign(rec,r);
   rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
+  rec.eternal=Object.assign({everburning:0,memory:0,bright:0,beaconkeeper:0},rec.eternal||{});
   if(!Array.isArray(rec.achievements))rec.achievements=[]; if(!rec.chars||!rec.chars.length)rec.chars=['ember']; if(!rec.char)rec.char='ember'; } }catch(e){} }
 function saveRec(){ try{ localStorage.setItem(RKEY,JSON.stringify(rec)); }catch(e){} }
 function today(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
@@ -325,7 +331,10 @@ const ACH=[
  {id:'depth6', ico:'🌊', n:'Deep Diver',        d:'Reach Depth 6',        t:r=>(r.bestDepth||0)>=6},
  {id:'depth12',ico:'🕳', n:'Into the Abyss',    d:'Reach Depth 12',       t:r=>(r.bestDepth||0)>=12},
  {id:'beacon1',ico:'🔥', n:'Rekindler',         d:'Light your first beacon',t:r=>(r.beacons||0)>=1},
- {id:'beaconAll',ico:'🕯',n:'The Path Rekindled',d:'Light all 5 beacons',  t:r=>(r.beacons||0)>=5} ];
+ {id:'beaconAll',ico:'🕯',n:'The Path Rekindled',d:'Light all 5 beacons',  t:r=>(r.beacons||0)>=5},
+ {id:'ascend1', ico:'🔆', n:'Reborn',            d:'Ascend for the first time', t:r=>(r.asc||0)>=1, secret:true},
+ {id:'asc5',    ico:'☀',  n:'Ever Brighter',     d:'Reach Ascension 5',        t:r=>(r.asc||0)>=5, secret:true},
+ {id:'depth13', ico:'👁', n:'The Abyss Gazes Back',d:'Reach Depth 13',          t:r=>(r.bestDepth||0)>=13, secret:true} ];
 function checkAchievements(){ newAch=[]; for(const a of ACH){ if(a.t(rec)&&rec.achievements.indexOf(a.id)<0){ rec.achievements.push(a.id); newAch.push(a.n); } } if(newAch.length)saveRec(); }
 
 /* ---- run-based upgrade drafts (Hades-style: pick 1 of 3, stacks, lasts the run) ---- */
@@ -375,13 +384,20 @@ function beaconWX(i){ return VW*0.55 + i*VW*0.66; }
 let mapCamX=0, mapAvX=0, mapMsg='', mapMsgT=0, mapGlow=0;
 function nextUnlit(){ return rec.beacons||0; }   // beacons light in order; the next one is index === count lit
 function openMap(){ initAudio(); state='map'; const i=Math.min(nextUnlit(),BEACONS.length-1);
-  mapAvX=Math.max(VW*0.2, beaconWX(i)-VW*0.5); mapCamX=mapAvX-VW*0.32; mapMsg=''; mapMsgT=0; sfx('level'); syncButtons(); }
+  mapAvX=Math.max(VW*0.2, beaconWX(i)-VW*0.5); mapCamX=mapAvX-VW*0.32; mapMsg=''; mapMsgT=0; ascPending=false; sfx('level'); syncButtons(); }
 function mapUpdate(dt){ const i=nextUnlit(); const allLit=i>=BEACONS.length;
-  const target = allLit ? beaconWX(BEACONS.length-1) : beaconWX(i)-46;   // stop just left of the next dark beacon
+  const target = allLit ? beaconWX(BEACONS.length)-46 : beaconWX(i)-46;   // all lit -> walk on to the Ascension Altar
   mapAvX += (target-mapAvX)*Math.min(1,dt*3.2);
   mapCamX += ((mapAvX-VW*0.32)-mapCamX)*Math.min(1,dt*3.5);
   if(mapMsgT>0)mapMsgT-=dt; if(mapGlow>0)mapGlow-=dt; }
-function tapMap(){ const i=nextUnlit(); if(i>=BEACONS.length){ mapMsg='The path is whole. The Wane recedes.'; mapMsgT=3; return; }
+function tapMap(){ const i=nextUnlit();
+  if(i>=BEACONS.length){   // standing at the Ascension Altar
+    if(Math.abs(mapAvX-(beaconWX(BEACONS.length)-46))>70){ return; }   // still walking to it
+    if(ascPending){ ascPending=false; const e=ascend();
+      mapMsg='✦ ASCENDED — Rebirth '+rec.asc+'   ·   +'+e+' Emberhearts ❤'; mapMsgT=7; mapGlow=1.6; flash=Math.max(flash,0.8); shake=Math.max(shake,16); sfx('best');
+      const bx=beaconWX(BEACONS.length)-mapCamX; for(let k=0;k<70;k++)particles.push({x:bx,y:GY-40,vx:rnd(-260,260),vy:rnd(-420,-20),life:1.3,max:1.3,r:rnd(2,4.5),c:k%3?'#ff7a2a':'#fff3c0',g:170}); }
+    else { ascPending=true; mapMsg='⟡ THE ASCENSION ALTAR ⟡  Tap again to be REBORN: resets embers, upgrades'+(rec.eternal.beaconkeeper?'':' & beacons')+' for +20% embers forever, +'+ascHearts()+' Emberhearts.'; mapMsgT=8; mapGlow=1; sfx('level'); }
+    return; }
   if(Math.abs(mapAvX-(beaconWX(i)-46))>60){ return; }   // still walking — wait until you arrive
   const b=BEACONS[i];
   if(rec.embers>=b.cost){ rec.embers-=b.cost; rec.beacons=i+1; saveRec(); mapMsg='✦ '+b.name+' — "'+b.lore+'"'; mapMsgT=5; mapGlow=1.2;
@@ -417,6 +433,15 @@ function drawMap(){
     if(isNext){ const can=rec.embers>=BEACONS[i].cost; ctx.fillStyle=can?'#9dffd0':'#c98080'; ctx.font='12px Trebuchet MS';
       ctx.fillText('✦ '+BEACONS[i].cost+(can?'  — TAP TO LIGHT':'  — need more'),x,GY+44); } }
   ctx.restore();
+  // Ascension Altar — revealed once every beacon is lit
+  if(ascReady()){ const ax=beaconWX(BEACONS.length)-mapCamX; if(ax>-120&&ax<VW+120){
+    const pulse=0.6+0.4*Math.sin(mapAvX*0.05);
+    const beam=ctx.createLinearGradient(ax,GY,ax,0); beam.addColorStop(0,'rgba(255,150,70,'+(0.55*pulse)+')'); beam.addColorStop(1,'rgba(255,200,120,0)'); ctx.fillStyle=beam; ctx.fillRect(ax-28,0,56,GY);
+    ctx.fillStyle='#2a1a20'; ctx.fillRect(ax-28,GY-14,56,14);
+    ctx.strokeStyle='#ffcf6a'; ctx.lineWidth=3; ctx.shadowColor='#ff7a2a'; ctx.shadowBlur=22;
+    ctx.beginPath(); ctx.arc(ax,GY-60,26+5*pulse,0,Math.PI*2); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.textAlign='center'; ctx.fillStyle='#ffd9a0'; ctx.font='bold 13px Trebuchet MS'; ctx.fillText('ASCENSION ALTAR',ax,GY+26);
+    ctx.fillStyle=ascPending?'#9dffd0':'#ff9a6a'; ctx.font='bold 12px Trebuchet MS'; ctx.fillText(ascPending?'TAP TO CONFIRM REBIRTH':'TAP TO ASCEND ✦',ax,GY+44); } }
   // avatar
   drawWick(mapAvX-mapCamX, GY, BIOMES[0].bloom, false);
   drawParticles();
@@ -424,11 +449,31 @@ function drawMap(){
   // HUD
   ctx.textAlign='center'; ctx.fillStyle='#ffb88a'; ctx.font='bold 26px Trebuchet MS'; ctx.shadowColor='#ff7a2a'; ctx.shadowBlur=14; ctx.fillText('REKINDLING MAP',VW/2,40); ctx.shadowBlur=0;
   ctx.fillStyle='#ffd9a0'; ctx.font='14px Trebuchet MS'; ctx.fillText('✦ '+rec.embers+' embers',VW/2,64);
-  ctx.fillStyle='#9dffd0'; ctx.font='13px Trebuchet MS'; ctx.fillText(rec.beacons+' / '+BEACONS.length+' beacons lit   ·   +'+Math.round(beaconBonus()*100)+'% embers earned',VW/2,84);
+  ctx.fillStyle='#9dffd0'; ctx.font='13px Trebuchet MS'; ctx.fillText(rec.beacons+' / '+BEACONS.length+' beacons lit   ·   +'+Math.round((emberMult()-1)*100)+'% embers'+((rec.asc||0)?('   ·   ✦ '+rec.asc+'  ·  ❤ '+(rec.hearts||0)):''),VW/2,84);
   ctx.fillStyle='rgba(189,245,232,.6)'; ctx.font='12px Trebuchet MS'; ctx.fillText('Walk the path · tap a beacon to rekindle it',VW/2,VH-16);
   if(mapMsgT>0){ ctx.globalAlpha=Math.min(1,mapMsgT); ctx.fillStyle='#fff'; ctx.font='italic 15px Trebuchet MS'; ctx.shadowColor='#000'; ctx.shadowBlur=8;
     ctx.fillText(mapMsg,VW/2,VH*0.62); ctx.shadowBlur=0; ctx.globalAlpha=1; }
   ctx.fillStyle='rgba(255,255,255,.25)'; ctx.font='11px Trebuchet MS'; ctx.textAlign='left'; ctx.fillText(muted?'🔇 M':'🔊 M',12,VH-12); }
+
+/* ---- Phase 4: Ascension (prestige rebirth) + Eternal meta-upgrades + secrets ---- */
+function ascBonus(){ return (rec.asc||0)*(0.20+(rec.eternal.bright||0)*0.05); }   // +20% embers per ascension (Bright Soul sweetens it)
+function emberMult(){ return 1+beaconBonus()+ascBonus(); }                         // total ember multiplier from beacons + ascension
+const ETERNAL={ everburning:{name:'Everburning — reborn rich',max:4,desc:'Start each rebirth with +250 embers per level',cost:l=>1+l},
+  memory:{name:'Deep Memory — retained mastery',max:3,desc:'Keep this many upgrade ranks through ascension',cost:l=>2+l*2},
+  bright:{name:'Bright Soul — brighter rebirth',max:5,desc:'+5% to your ascension ember bonus per level',cost:l=>2+l},
+  beaconkeeper:{name:'Beaconkeeper — eternal flame',max:1,desc:'Beacons stay lit through ascension',cost:l=>6} };
+function ascReady(){ return (rec.beacons||0)>=BEACONS.length; }                    // light all beacons to unlock the altar
+function ascHearts(){ return 2+(rec.asc||0)+Math.floor((rec.cycleEarned||0)/4000); }
+let newUnlock='', ascPending=false;
+function ascend(){ if(!ascReady())return 0;
+  const earned=ascHearts(); rec.hearts=(rec.hearts||0)+earned; rec.asc=(rec.asc||0)+1;
+  rec.embers=(rec.eternal.everburning||0)*250;                                     // Everburning seeds the new cycle
+  const keep=rec.eternal.memory||0; for(const k in rec.upgrades) rec.upgrades[k]=Math.min(rec.upgrades[k],keep);
+  if(!rec.eternal.beaconkeeper) rec.beacons=0;
+  rec.cycleEarned=0; checkUnlocks(); checkAchievements(); saveRec(); return earned; }
+function checkUnlocks(){ const add=id=>{ if(!rec.chars.includes(id)){ rec.chars.push(id); newUnlock=(CHARS.find(c=>c.id===id)||{}).name||id; saveRec(); } };
+  if((rec.bestDepth||0)>=13) add('ash');      // SECRET: reach the abyss
+  if((rec.asc||0)>=1) add('phoenix'); }       // SECRET: ascend once
 
 /* ---- pace ghost ---- */
 let paceRec=[], paceAcc=0;
@@ -496,7 +541,7 @@ function startRun(){
   if(dailyMode){ const sd=dateSeed(); TRT=mulberry32(sd); TRE=mulberry32((sd^0x9e3779b9)>>>0); } else { TRT=Math.random; TRE=Math.random; }
   state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
   streak=0; nearMiss=0; best=false; flash=0; shake=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
-  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; paused=false;
+  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; newUnlock=''; paused=false;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0; depth=0;
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
   applyUpgrades(); applyCharacter();
@@ -520,15 +565,15 @@ function die(){ if(state!=='run')return;
   const Pg=biome()[aspect];
   for(let i=0;i<34;i++)particles.push({x:ANCHOR,y:p.y-18,vx:rnd(-180,120),vy:rnd(-260,-40),life:.9,max:.9,r:rnd(2,4),c:Pg.glow,g:520});
   const dm=Math.floor(meters); rec.total+=dm;
-  embersRun=Math.round(embersRun*(1+beaconBonus()));   // lit beacons permanently boost ember gain
-  rec.embers+=embersRun;
+  embersRun=Math.round(embersRun*emberMult());   // beacons + ascension permanently boost ember gain
+  rec.embers+=embersRun; rec.cycleEarned=(rec.cycleEarned||0)+embersRun;
   if(dm>rec.bestDist){ rec.bestDist=dm; best=true; rec.pace=paceRec.slice(); sfx('best'); }
   if(runTime>rec.bestTime) rec.bestTime=runTime;
   if(streak>rec.bestStreak) rec.bestStreak=streak;
   if(rec.dayKey!==today()){ rec.dayKey=today(); rec.dayBest=0; }
   if(dailyMode && dm>rec.dayBest) rec.dayBest=dm;
   rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun); rec.bestDepth=Math.max(rec.bestDepth||0,depth);
-  checkAchievements();
+  checkAchievements(); checkUnlocks();
   saveRec(); syncButtons(); }
 
 /* ---- input ---- */
@@ -788,7 +833,8 @@ function drawTitle(){ ctx.textAlign='center';
   ctx.fillStyle='#9dffd0'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN',VW/2,190);
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('LEFT = FLIP   ·   RIGHT = JUMP (hold = higher)',VW/2,214);
   ctx.fillStyle='#ffcf6a'; ctx.font='14px Trebuchet MS'; ctx.fillText('✦ '+rec.embers+' embers'+(rec.bestDist?'    ·    Best '+rec.bestDist+' m':''),VW/2,242);
-  drawMissions(VW/2,278); }
+  if(rec.asc>0){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('✦ ASCENSION '+rec.asc+'   ·   ❤ '+(rec.hearts||0)+' emberhearts   ·   +'+Math.round(ascBonus()*100)+'% embers',VW/2,263); }
+  drawMissions(VW/2, rec.asc>0?292:278); }
 function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); ctx.textAlign='center';
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('DISTANCE',VW/2,70);
   ctx.fillStyle='#bdf5e8'; ctx.font='bold 54px Trebuchet MS'; ctx.fillText(Math.floor(meters)+' m',VW/2,116);
@@ -796,6 +842,7 @@ function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); c
   ctx.fillStyle='#ffcf6a'; ctx.font='15px Trebuchet MS'; ctx.fillText('✦ +'+embersRun+' embers   (total '+rec.embers+')',VW/2,166);
   ctx.fillStyle='#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText('⏱ '+runTime.toFixed(1)+'s    ↺ '+streak+'    '+nearMiss+' clutch    Best '+rec.bestDist+' m',VW/2,190);
   drawMissions(VW/2,222);
+  if(newUnlock){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 16px Trebuchet MS'; ctx.shadowColor='#ff5a3a'; ctx.shadowBlur=10; ctx.fillText('✦ NEW CHARACTER: '+newUnlock+' — find it in the shop',VW/2,VH-94); ctx.shadowBlur=0; }
   if(newAch.length){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('🏆 UNLOCKED: '+newAch.slice(0,3).join(' · '),VW/2,VH-74); }
   ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-40);
   ctx.fillStyle='rgba(189,245,232,.6)'; ctx.font='12px Trebuchet MS'; ctx.fillText('≡ HISTORY  ·  ✦ SHOP  (top corners)',VW/2,VH-18); }
@@ -848,7 +895,7 @@ function closeShop(){ shopOpen=false; document.getElementById('shop').style.disp
 /* ---- pause / main menu / history ---- */
 function pauseGame(){ if(state!=='run')return; paused=true; document.getElementById('pmMute').textContent='SOUND: '+(muted?'OFF':'ON'); document.getElementById('pauseMenu').style.display='flex'; syncButtons(); }
 function resumeGame(){ paused=false; document.getElementById('pauseMenu').style.display='none'; last=performance.now()/1000; syncButtons(); }
-function toTitle(){ state='title'; paused=false; dailyMode=false; drafting=false; resetBoons(); document.getElementById('draft').style.display='none'; document.getElementById('pauseMenu').style.display='none';
+function toTitle(){ state='title'; paused=false; dailyMode=false; drafting=false; ascPending=false; resetBoons(); document.getElementById('draft').style.display='none'; document.getElementById('pauseMenu').style.display='none';
   segs=[]; pickups=[]; particles=[]; floats=[]; biomeIdx=0; p.y=GY; p.wx=ANCHOR; p.invuln=0; combo=0; flowT=0; syncButtons(); }
 function openHistory(){ historyOpen=true; renderHistory(); document.getElementById('history').style.display='flex'; syncButtons(); }
 function closeHistory(){ historyOpen=false; document.getElementById('history').style.display='none'; syncButtons(); }
@@ -860,8 +907,8 @@ function renderHistory(){
     ['Total runs',rec.runs],['Today’s best',(rec.dayKey===today()?rec.dayBest:0)+' m']];
   let h='<div class="statgrid">'; for(const [k,v] of S) h+='<div><span>'+k+'</span><b>'+v+'</b></div>'; h+='</div>';
   h+='<div class="achlabel">— ACHIEVEMENTS —</div><div class="achgrid">';
-  for(const a of ACH){ const got=rec.achievements.indexOf(a.id)>=0;
-    h+='<div class="ach'+(got?' got':'')+'"><div class="ico">'+(got?a.ico:'🔒')+'</div><div><div class="n">'+a.n+'</div><div class="d">'+a.d+'</div></div></div>'; }
+  for(const a of ACH){ const got=rec.achievements.indexOf(a.id)>=0; const hide=a.secret&&!got;
+    h+='<div class="ach'+(got?' got':'')+'"><div class="ico">'+(got?a.ico:(hide?'❔':'🔒'))+'</div><div><div class="n">'+(hide?'???':a.n)+'</div><div class="d">'+(hide?'A secret, yet to be found':a.d)+'</div></div></div>'; }
   h+='</div>'; document.getElementById('histBody').innerHTML=h; }
 document.getElementById('btnL').onclick=()=>{ if(state==='run'){ paused?resumeGame():pauseGame(); } else if(state==='map'){ toTitle(); } else openHistory(); };
 document.getElementById('pmResume').onclick=resumeGame;
@@ -871,10 +918,11 @@ document.getElementById('pmMute').onclick=function(){ muted=!muted; if(master)ma
 document.getElementById('closeHist').onclick=closeHistory;
 document.getElementById('btnDaily').onclick=startDaily;
 document.getElementById('btnMap').onclick=openMap;
-function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+rec.embers+' embers';
+function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+rec.embers+' embers'+((rec.asc||rec.hearts)?('     ❤ '+(rec.hearts||0)+' emberhearts'):'');
   document.querySelectorAll('#shop .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===shopTab));
   const rows=document.getElementById('shopRows'); rows.innerHTML='';
-  if(shopTab==='chars'){ for(const c of CHARS){ const owned=rec.chars.includes(c.id); const sel=rec.char===c.id;
+  if(shopTab==='chars'){ for(const c of CHARS){ if(c.secret && !rec.chars.includes(c.id))continue;   // secret characters stay hidden until unlocked
+    const owned=rec.chars.includes(c.id); const sel=rec.char===c.id;
     const row=document.createElement('div'); row.className='srow';
     row.innerHTML='<div class="gem" style="color:'+(c.glow||'#ff7a2a')+';background:'+(c.glow||'#ff7a2a')+'"></div><div class="info"><div class="n">'+c.name+'</div><div class="d">'+c.desc+'</div></div>';
     const b=document.createElement('button');
@@ -892,6 +940,18 @@ function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+
     else if(rec.embers>=s.cost){ b.textContent='BUY ✦'+s.cost; b.onclick=()=>{ rec.embers-=s.cost; rec.skins.push(id); rec.skin=id; saveRec(); renderShop(); }; }
     else { b.textContent='✦'+s.cost; b.className='cant'; }
     row.appendChild(b); rows.appendChild(row); } }
+  else if(shopTab==='eternal'){
+    const intro=document.createElement('div'); intro.className='srow'; intro.style.opacity='.85';
+    intro.innerHTML='<div class="info"><div class="n" style="color:#ff9a6a">❤ Emberhearts — '+(rec.hearts||0)+'</div><div class="d">Earned by Ascending at the Rekindling Map. These upgrades are eternal — they survive every rebirth.</div></div>';
+    rows.appendChild(intro);
+    for(const id in ETERNAL){ const u=ETERNAL[id]; const lv=rec.eternal[id]||0; const maxed=lv>=u.max; const cost=u.cost(lv);
+      const row=document.createElement('div'); row.className='srow';
+      row.innerHTML='<div class="gem" style="color:#ff9a6a;background:#ff9a6a"></div><div class="info"><div class="n">'+u.name+'  <span style="color:#9a93a8">Lv '+lv+'/'+u.max+'</span></div><div class="d">'+u.desc+'</div></div>';
+      const b=document.createElement('button');
+      if(maxed){ b.textContent='MAX'; b.className='owned'; }
+      else if((rec.hearts||0)>=cost){ b.textContent='❤'+cost; b.onclick=()=>{ rec.hearts-=cost; rec.eternal[id]=lv+1; saveRec(); renderShop(); }; }
+      else { b.textContent='❤'+cost; b.className='cant'; }
+      row.appendChild(b); rows.appendChild(row); } }
   else { for(const id in UPG){ const u=UPG[id]; const lv=rec.upgrades[id]||0; const maxed=lv>=u.max; const cost=u.cost(lv);
     const row=document.createElement('div'); row.className='srow';
     row.innerHTML='<div class="gem" style="color:#9dffd0;background:#9dffd0"></div><div class="info"><div class="n">'+u.name+'  <span style="color:#9a93a8">Lv '+lv+'/'+u.max+'</span></div><div class="d">'+u.desc+'</div></div>';
@@ -909,6 +969,7 @@ let last=0,acc=0; const STEP=1/120;
 function frame(t){ const now=t/1000; let dt=now-last; last=now; if(dt>0.1)dt=0.1;
   if(!paused){ acc+=dt; let n=0; while(acc>=STEP&&n<8){ update(STEP); acc-=STEP; n++; } }   // game only pauses on manual pause
   draw(); requestAnimationFrame(frame); }
+checkUnlocks();   // retroactively grant secret characters earned before this update (safe: runs after all defs)
 requestAnimationFrame(t=>{ last=t/1000; frame(t); });
 const LOW=(typeof matchMedia!=='undefined')&&matchMedia('(pointer:coarse)').matches;
 if(LOW){ document.getElementById('zones').style.display='block'; const rt=document.getElementById('rotate'); if(rt)rt.classList.add('armed'); }
@@ -934,7 +995,8 @@ window.__run={ get state(){return state;}, get p(){return p;}, get meters(){retu
   get dailyMode(){return dailyMode;}, set dailyMode(v){dailyMode=v;}, startDaily,
   get boons(){return boons;}, applyBoon, spawnBoonOrbs, set nextDraftM(v){nextDraftM=v;}, get pickups2(){return pickups;}, get depth(){return depth;},
   get UPG(){return UPG;}, get BOONS(){return BOONS;}, get flowMax(){return flowMax;}, set combo(v){combo=v;},
-  openMap, tapMap, mapUpdate, toTitle, get mapAvX(){return mapAvX;}, get BEACONS(){return BEACONS;}, set embersRun(v){embersRun=v;}, die, get beaconBonus(){return beaconBonus();} };
+  openMap, tapMap, mapUpdate, toTitle, get mapAvX(){return mapAvX;}, get BEACONS(){return BEACONS;}, set embersRun(v){embersRun=v;}, die, get beaconBonus(){return beaconBonus();},
+  ascend, ascReady, checkUnlocks, applyCharacter, get ETERNAL(){return ETERNAL;}, get emberMult(){return emberMult();}, get ascBonus(){return ascBonus();} };
 </script>
 </body>
 </html>
