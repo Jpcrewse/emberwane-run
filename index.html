@@ -1004,7 +1004,12 @@ function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=
     else if(id==='phoenix'){ ctx.save(); ctx.globalCompositeOperation='lighter'; const fl=Math.abs(Math.sin(t*9))*6; ctx.fillStyle='rgba(255,90,58,0.55)';
       ctx.beginPath(); ctx.moveTo(-6,-18+bob); ctx.quadraticCurveTo(-26,-30-fl,-30,-5); ctx.quadraticCurveTo(-18,-13,-6,-14); ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.moveTo(6,-18+bob); ctx.quadraticCurveTo(26,-30-fl,30,-5); ctx.quadraticCurveTo(18,-13,6,-14); ctx.closePath(); ctx.fill(); ctx.restore(); } }   // flame wings
-  if(shield>0&&!ghost){ ctx.strokeStyle='rgba(157,255,208,.7)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,-16,26,0,Math.PI*2); ctx.stroke(); }
+  if(shield>0&&!ghost){ const n=Math.min(shield,5);                       // one ring per charge — armour reads as a visible stack
+    const tier = shield>=5?'255,217,138' : shield>=3?'189,255,255' : '157,255,208';   // teal → cyan → gold as you stack up
+    for(let s=0;s<n;s++){ const rr=23+s*4.5; ctx.strokeStyle='rgba('+tier+','+Math.max(0.2,0.74-s*0.1)+')'; ctx.lineWidth=Math.max(1.2,2.6-s*0.25);
+      ctx.beginPath(); ctx.arc(0,-16,rr,0,Math.PI*2); ctx.stroke(); }
+    if(shield>=3){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba('+tier+',0.22)'; ctx.lineWidth=1.5;   // pulse halo on a strong stack
+      ctx.beginPath(); ctx.arc(0,-16, 23+(n-1)*4.5+3+Math.sin(p.run*6)*1.6, 0,Math.PI*2); ctx.stroke(); ctx.restore(); } }
   ctx.restore(); }
 function drawParticles(){ for(const pa of particles){ ctx.globalAlpha=Math.max(0,pa.life/pa.max); ctx.fillStyle=pa.c; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1; }
 function drawFloats(){ ctx.textAlign='center'; for(const f of floats){ ctx.globalAlpha=Math.max(0,Math.min(1,f.life/f.max)); ctx.fillStyle=f.c; ctx.font='bold '+f.size+'px Trebuchet MS'; ctx.shadowColor='#000'; ctx.shadowBlur=6;
