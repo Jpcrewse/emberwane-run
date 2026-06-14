@@ -39,6 +39,29 @@
   .srow button.owned{border-color:#7fd9c9;color:#7fd9c9;} .srow button.sel{background:#16221f;border-color:#7fd9c9;color:#7fd9c9;}
   .srow button.cant{opacity:.4;cursor:default;}
   #shop .close{margin-top:18px;background:transparent;border:1px solid rgba(255,255,255,.3);color:#f4ead8;padding:10px 30px;border-radius:24px;letter-spacing:2px;cursor:pointer;}
+  /* left corner button (HISTORY on menu / PAUSE in a run) */
+  #btnL{position:fixed;z-index:12;left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));
+    display:none;background:rgba(20,16,32,.7);border:1.5px solid rgba(160,200,255,.5);color:#bdf5e8;
+    padding:9px 14px;border-radius:22px;font-weight:bold;letter-spacing:1px;font-size:15px;cursor:pointer;}
+  /* shared full-screen overlays (pause + history) */
+  .ov{position:fixed;inset:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(5,4,10,.93);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);overflow:auto;padding:24px 12px;}
+  .ov h2{letter-spacing:6px;font-size:28px;margin:6px 0 4px;color:#f4ead8;}
+  .ov .sub{color:#9a93a8;font-size:12px;letter-spacing:1px;margin-bottom:18px;}
+  .ov .close{margin-top:20px;background:transparent;border:1px solid rgba(255,255,255,.3);color:#f4ead8;padding:10px 30px;border-radius:24px;letter-spacing:2px;cursor:pointer;}
+  .mbtns{display:flex;flex-direction:column;gap:13px;width:270px;max-width:80vw;margin-top:8px;}
+  .mbtn{background:#1a1426;border:1.5px solid #4a4266;color:#f4ead8;border-radius:26px;padding:14px;font-size:15px;letter-spacing:2px;cursor:pointer;font-weight:bold;}
+  .mbtn.go{border-color:#7fd9c9;color:#bdf5e8;}
+  #histBody{width:580px;max-width:95vw;}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;margin-bottom:18px;}
+  .statgrid>div{display:flex;justify-content:space-between;font-size:13px;color:#cfc7d6;border-bottom:1px solid #1c1828;padding:5px 0;}
+  .statgrid b{color:#f4ead8;}
+  .achlabel{color:#9a93a8;font-size:11px;letter-spacing:2px;margin:4px 0 10px;text-align:center;}
+  .achgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ach{display:flex;gap:10px;align-items:center;padding:9px 11px;border:1px solid #2a2438;border-radius:10px;background:#120f1c;opacity:.45;}
+  .ach.got{opacity:1;border-color:#ffd9a0;background:#1a1526;}
+  .ach .ico{font-size:20px;flex:0 0 auto;}
+  .ach .n{font-size:13px;color:#f4ead8;} .ach .d{font-size:10.5px;color:#9a93a8;}
 </style>
 </head>
 <body>
@@ -46,12 +69,27 @@
 <div id="zones"><div class="z zl">◀ TAP = FLIP</div><div class="z zr">TAP = JUMP ▶</div></div>
 <div id="rotate">↻<br>Rotate to landscape<br>for EMBER RUN.</div>
 <button id="openShop">✦ SHOP</button>
+<button id="btnL">≡ HISTORY</button>
 <div id="shop">
   <h2>EMBER SHOP</h2>
   <div class="wallet" id="shopWallet"></div>
   <div class="tabs"><div class="tab on" data-tab="skins">SKINS</div><div class="tab" data-tab="upg">UPGRADES</div></div>
   <div class="rows" id="shopRows"></div>
   <button class="close" id="closeShop">CLOSE</button>
+</div>
+<div id="pauseMenu" class="ov">
+  <h2>PAUSED</h2>
+  <div class="mbtns">
+    <button class="mbtn go" id="pmResume">RESUME</button>
+    <button class="mbtn" id="pmRestart">RESTART</button>
+    <button class="mbtn" id="pmMenu">MAIN MENU</button>
+  </div>
+</div>
+<div id="history" class="ov">
+  <h2>HISTORY</h2>
+  <div class="sub" id="histSub"></div>
+  <div id="histBody"></div>
+  <button class="close" id="closeHist">CLOSE</button>
 </div>
 <script>
 // On-screen error reporter — if anything throws (esp. on iOS Safari), show it instead of a silent "just a picture".
@@ -188,6 +226,7 @@ let state='title', aspect='bloom';
 let runDist=0, runTime=0, runSpeed=T.baseSpeed, trueM=0, biomeIdx=0;
 let meters=0, mult=1, comboGain=0.18, combo=0, flowT=0, streak=0, nearMiss=0, best=false; const FLOW_MAX=3;
 let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, levelFlash=0, floats=[], hitstop=0, slowT=0;
+let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let embersRun=0, magnetT=0, overdriveT=0, shield=0, magnetExtra=0;
 const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0 };
 let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0;
@@ -198,9 +237,11 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.fl
 /* ---- records / wallet / progression (localStorage) ---- */
 const RKEY='emberwane-run-records-v2';
 let rec={ bestDist:0,bestTime:0,bestStreak:0,total:0,dayKey:'',dayBest:0,pace:[],
-  embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0} };
+  embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0},
+  runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[] };
 function loadRec(){ try{ const r=JSON.parse(localStorage.getItem(RKEY)); if(r){ rec=Object.assign(rec,r);
-  rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember']; } }catch(e){} }
+  rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
+  if(!Array.isArray(rec.achievements))rec.achievements=[]; } }catch(e){} }
 function saveRec(){ try{ localStorage.setItem(RKEY,JSON.stringify(rec)); }catch(e){} }
 function today(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 loadRec();
@@ -217,6 +258,24 @@ if(!rec.missions||!rec.missions.length) genMissions();
 function mprog(k,n){ for(const m of rec.missions){ if(m.k===k&&!m.done){ m.prog+=n; if(m.prog>=m.target){m.done=true;missionFlash=1.4;sfx('mission');} } } checkLevel(); }
 function mset(k,v){ for(const m of rec.missions){ if(m.k===k&&!m.done){ if(v>m.prog)m.prog=v; if(m.prog>=m.target){m.done=true;missionFlash=1.4;sfx('mission');} } } checkLevel(); }
 function checkLevel(){ if(rec.missions.length&&rec.missions.every(m=>m.done)){ rec.level++; const rw=40*rec.level; rec.embers+=rw; levelFlash=2.4; sfx('level'); genMissions(); saveRec(); } }
+
+/* ---- achievements ---- */
+const ACH=[
+ {id:'first', ico:'🌱', n:'First Ember',        d:'Finish a run',         t:r=>r.runs>=1},
+ {id:'d100',  ico:'🏃', n:'Sprinter',           d:'Reach 100 m',          t:r=>r.bestDist>=100},
+ {id:'d500',  ico:'⚡', n:'Trailblazer',        d:'Reach 500 m',          t:r=>r.bestDist>=500},
+ {id:'d1000', ico:'🔥', n:'Kilometer',          d:'Reach 1000 m',         t:r=>r.bestDist>=1000},
+ {id:'d2000', ico:'🌟', n:'Far Flame',          d:'Reach 2000 m',         t:r=>r.bestDist>=2000},
+ {id:'t60',   ico:'⏱', n:'Enduring',           d:'Survive 60 s',         t:r=>r.bestTime>=60},
+ {id:'s10',   ico:'🔗', n:'In the Flow',        d:'Hit a 10x combo',      t:r=>r.bestStreak>=10},
+ {id:'s25',   ico:'💫', n:'Flow Master',        d:'Hit a 25x combo',      t:r=>r.bestStreak>=25},
+ {id:'tot10k',ico:'🛣', n:'Marathoner',         d:'Run 10 km total',      t:r=>r.total>=10000},
+ {id:'emb1k', ico:'✦', n:'Ember Hoarder',      d:'Earn 1000 embers',     t:r=>r.embersEarned>=1000},
+ {id:'biome3',ico:'🌌', n:'Into the Stillness', d:'Reach The Stillness',  t:r=>r.maxBiome>=3},
+ {id:'flip500',ico:'🔄',n:'World Turner',       d:'Flip 500 times',       t:r=>r.flipsTotal>=500},
+ {id:'perf10',ico:'🎯', n:'Perfectionist',      d:'10 perfects in a run', t:r=>r.bestPerfects>=10},
+ {id:'runs50',ico:'🏅', n:'Dedicated',          d:'Play 50 runs',         t:r=>r.runs>=50} ];
+function checkAchievements(){ newAch=[]; for(const a of ACH){ if(a.t(rec)&&rec.achievements.indexOf(a.id)<0){ rec.achievements.push(a.id); newAch.push(a.n); } } if(newAch.length)saveRec(); }
 
 /* ---- pace ghost ---- */
 let paceRec=[], paceAcc=0;
@@ -282,12 +341,12 @@ function applyUpgrades(){ const u=rec.upgrades;
   comboGain = 0.18*(1+u.focus*0.12); mult=1; combo=0; flowT=0; }
 function startRun(){ state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
   streak=0; nearMiss=0; best=false; flash=0; shake=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
-  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0;
+  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; paused=false;
   applyUpgrades();
   p.wx=ANCHOR; p.y=GY; p.vy=0; p.onGround=true; p.coyote=0; p.jumpBuf=0; p.jumpHeld=false; p.cutDone=true; p.run=0; p.invuln=0;
   segs=[]; genX=0; lastAspect='bloom'; needRest=false; sincePower=0; pickups=[]; particles=[];
   pushSeg(1200,true,true,{kind:'rest'}); genAhead(); setDrone();
-  paceRec=[{t:0,d:0}]; paceAcc=0; syncShopBtn(); }
+  paceRec=[{t:0,d:0}]; paceAcc=0; syncButtons(); }
 function hit(){ // an obstacle (wall/spike/ceiling) tried to kill you — spend a shield first, with i-frames to pass through
   if(p.invuln>0)return;
   if(shield>0){ shield--; p.invuln=0.75; combo=0; flowT=0; flash=Math.max(flash,0.42); shake=Math.max(shake,9); sfx('power'); pushFloat('SHIELD!','#9dffd0',20);
@@ -309,12 +368,14 @@ function die(){ if(state!=='run')return; state='dead'; deathT=0; shake=14; sfx('
   if(streak>rec.bestStreak) rec.bestStreak=streak;
   if(rec.dayKey!==today()){ rec.dayKey=today(); rec.dayBest=0; }
   if(dm>rec.dayBest) rec.dayBest=dm;
-  saveRec(); syncShopBtn(); }
+  rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun);
+  checkAchievements();
+  saveRec(); syncButtons(); }
 
 /* ---- input ---- */
 function flip(){ if(state!=='run')return;
   const before=solidAt(p.wx); aspect=aspect==='bloom'?'cinder':'bloom'; const after=solidAt(p.wx);
-  flash=0.26; setDrone(); sfx('flip'); mprog('flips',1);
+  flash=0.26; setDrone(); sfx('flip'); mprog('flips',1); rec.flipsTotal++;
   const Pg=biome()[aspect];
   for(let i=0;i<14;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-90,90),vy:rnd(-120,40),life:.4,max:.4,r:rnd(1,3),c:Pg.glow,g:120});
   if(!before&&after){ nearMiss++; mprog('clutch',1);
@@ -333,6 +394,8 @@ cv.addEventListener('touchend',e=>{ e.preventDefault(); jumpRelease(); },{passiv
 cv.addEventListener('touchcancel',e=>{ jumpRelease(); },{passive:false});
 addEventListener('keydown',e=>{ if(e.repeat)return; initAudio();
   if(e.code==='KeyM'){ muted=!muted; if(master)master.gain.value=muted?0:0.3; return; }
+  if(e.code==='Escape'||e.code==='KeyP'){ if(state==='run'){ e.preventDefault(); paused?resumeGame():pauseGame(); } return; }
+  if(paused) return;
   if(state!=='run'){ if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){e.preventDefault();tapStart();} return; }
   if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){ e.preventDefault(); jumpPress(); }
   else if(e.code==='ShiftLeft'||e.code==='ShiftRight'||e.code==='KeyT'||e.code==='ArrowLeft'){ e.preventDefault(); flip(); } });
@@ -364,7 +427,7 @@ function powColor(k){ return k==='magnet'?'#bda0ff':k==='shield'?'#9dffd0':'#ffb
 function pushFloat(txt,c,size){ floats.push({txt:txt,c:c||'#fff',size:size||18,x:ANCHOR+rnd(-12,12),y:p.y-52,vy:-55,life:1,max:1}); }
 function nextHole(){ for(const s of segs){ if(s.kind==='hole'&&s.x1>p.wx) return s; } return null; }
 function addCombo(perfect){ combo++; streak++; flowT=FLOW_MAX;
-  if(perfect){ const bonus=12+combo*2; meters+=bonus; shake=Math.max(shake,6); flash=Math.max(flash,0.20); sfx('perfect');
+  if(perfect){ perfectsRun++; const bonus=12+combo*2; meters+=bonus; shake=Math.max(shake,6); flash=Math.max(flash,0.20); sfx('perfect');
     pushFloat('+'+Math.round(bonus)+'m','#ffe9b0',22);                       // NO time-freeze — visuals + sound only
     for(let i=0;i<24;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-240,240),vy:rnd(-260,-20),life:.55,max:.55,r:rnd(2,3.5),c:i%2?'#fff':'#ffe9b0',g:140}); }
   else sfx('clean');
@@ -532,7 +595,9 @@ function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); c
   ctx.fillStyle='#ffcf6a'; ctx.font='15px Trebuchet MS'; ctx.fillText('✦ +'+embersRun+' embers   (total '+rec.embers+')',VW/2,166);
   ctx.fillStyle='#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText('⏱ '+runTime.toFixed(1)+'s    ↺ '+streak+'    '+nearMiss+' clutch    Best '+rec.bestDist+' m',VW/2,190);
   drawMissions(VW/2,222);
-  ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-40); }
+  if(newAch.length){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('🏆 UNLOCKED: '+newAch.slice(0,3).join(' · '),VW/2,VH-74); }
+  ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-40);
+  ctx.fillStyle='rgba(189,245,232,.6)'; ctx.font='12px Trebuchet MS'; ctx.fillText('≡ HISTORY  ·  ✦ SHOP  (top corners)',VW/2,VH-18); }
 function drawAreaCard(){ if(!areaCard)return; const a=Math.min(1, areaCard.t<0.4?areaCard.t/0.4:(areaCard.dur-areaCard.t)/0.5);
   ctx.globalAlpha=Math.max(0,a); ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 30px Trebuchet MS';
   ctx.shadowColor='#000'; ctx.shadowBlur=12; ctx.fillText(areaCard.name,VW/2,VH/2-40); ctx.shadowBlur=0; ctx.globalAlpha=1; }
@@ -552,9 +617,36 @@ function draw(){ const B=biome(); const P=B[aspect]; const IN=B[aspect==='bloom'
 
 /* ---- shop UI (DOM) ---- */
 let shopOpen=false, shopTab='skins';
-function syncShopBtn(){ document.getElementById('openShop').style.display=(state!=='run'&&!shopOpen)?'block':'none'; }
-function openShop(){ shopOpen=true; document.getElementById('shop').style.display='flex'; renderShop(); syncShopBtn(); }
-function closeShop(){ shopOpen=false; document.getElementById('shop').style.display='none'; syncShopBtn(); }
+function syncButtons(){ const anyOv=shopOpen||historyOpen||paused;
+  document.getElementById('openShop').style.display=(state!=='run'&&!anyOv)?'block':'none';
+  const bl=document.getElementById('btnL');
+  if(state==='run'){ bl.style.display=(!anyOv)?'block':'none'; bl.textContent='⏸'; }
+  else { bl.style.display=(!anyOv)?'block':'none'; bl.textContent='≡ HISTORY'; } }
+function openShop(){ shopOpen=true; document.getElementById('shop').style.display='flex'; renderShop(); syncButtons(); }
+function closeShop(){ shopOpen=false; document.getElementById('shop').style.display='none'; syncButtons(); }
+/* ---- pause / main menu / history ---- */
+function pauseGame(){ if(state!=='run')return; paused=true; document.getElementById('pauseMenu').style.display='flex'; syncButtons(); }
+function resumeGame(){ paused=false; document.getElementById('pauseMenu').style.display='none'; last=performance.now()/1000; syncButtons(); }
+function toTitle(){ state='title'; paused=false; document.getElementById('pauseMenu').style.display='none';
+  segs=[]; pickups=[]; particles=[]; floats=[]; biomeIdx=0; p.y=GY; p.wx=ANCHOR; p.invuln=0; combo=0; flowT=0; syncButtons(); }
+function openHistory(){ historyOpen=true; renderHistory(); document.getElementById('history').style.display='flex'; syncButtons(); }
+function closeHistory(){ historyOpen=false; document.getElementById('history').style.display='none'; syncButtons(); }
+function renderHistory(){
+  document.getElementById('histSub').textContent='Level '+rec.level+'  ·  '+rec.runs+' runs  ·  '+rec.achievements.length+'/'+ACH.length+' achievements';
+  const S=[['Best distance',rec.bestDist+' m'],['Longest survival',rec.bestTime.toFixed(1)+' s'],['Best combo','×'+rec.bestStreak],
+    ['Total distance',(rec.total/1000).toFixed(2)+' km'],['Embers earned','✦ '+rec.embersEarned],['Flips (lifetime)',rec.flipsTotal],
+    ['Furthest biome',(BIOMES[Math.min(BIOMES.length-1,rec.maxBiome)]||{}).name||'—'],['Best perfects (run)',rec.bestPerfects],
+    ['Total runs',rec.runs],['Today’s best',(rec.dayKey===today()?rec.dayBest:0)+' m']];
+  let h='<div class="statgrid">'; for(const [k,v] of S) h+='<div><span>'+k+'</span><b>'+v+'</b></div>'; h+='</div>';
+  h+='<div class="achlabel">— ACHIEVEMENTS —</div><div class="achgrid">';
+  for(const a of ACH){ const got=rec.achievements.indexOf(a.id)>=0;
+    h+='<div class="ach'+(got?' got':'')+'"><div class="ico">'+(got?a.ico:'🔒')+'</div><div><div class="n">'+a.n+'</div><div class="d">'+a.d+'</div></div></div>'; }
+  h+='</div>'; document.getElementById('histBody').innerHTML=h; }
+document.getElementById('btnL').onclick=()=>{ if(state==='run'){ paused?resumeGame():pauseGame(); } else openHistory(); };
+document.getElementById('pmResume').onclick=resumeGame;
+document.getElementById('pmRestart').onclick=()=>{ paused=false; document.getElementById('pauseMenu').style.display='none'; startRun(); };
+document.getElementById('pmMenu').onclick=toTitle;
+document.getElementById('closeHist').onclick=closeHistory;
 function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+rec.embers+' embers';
   document.querySelectorAll('#shop .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===shopTab));
   const rows=document.getElementById('shopRows'); rows.innerHTML='';
@@ -582,12 +674,13 @@ document.querySelectorAll('#shop .tab').forEach(t=>t.onclick=()=>{ shopTab=t.dat
 /* ---- loop / fit ---- */
 let last=0,acc=0; const STEP=1/120;
 function frame(t){ const now=t/1000; let dt=now-last; last=now; if(dt>0.1)dt=0.1;
-  acc+=dt; let n=0; while(acc>=STEP&&n<8){ update(STEP); acc-=STEP; n++; } draw(); requestAnimationFrame(frame); }
+  if(!paused){ acc+=dt; let n=0; while(acc>=STEP&&n<8){ update(STEP); acc-=STEP; n++; } }
+  draw(); requestAnimationFrame(frame); }
 requestAnimationFrame(t=>{ last=t/1000; frame(t); });
 const LOW=(typeof matchMedia!=='undefined')&&matchMedia('(pointer:coarse)').matches;
 if(LOW){ document.getElementById('zones').style.display='block'; const rt=document.getElementById('rotate'); if(rt)rt.classList.add('armed'); }
 function fit(){ const s=Math.min(innerWidth/VW,innerHeight/VH)*0.985; cv.style.width=(VW*s)+'px'; cv.style.height=(VH*s)+'px'; }
-addEventListener('resize',fit); fit(); syncShopBtn();
+addEventListener('resize',fit); fit(); syncButtons();
 
 /* ---- test hooks ---- */
 window.__run={ get state(){return state;}, get p(){return p;}, get meters(){return meters;}, startRun, flip, jumpPress, jumpRelease, update,
