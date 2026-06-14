@@ -370,7 +370,7 @@ function hit(){ // an obstacle (wall/spike/ceiling) tried to kill you — spend 
   if(shield>0){ shield--; p.invuln=0.75; combo=0; flowT=0; flash=Math.max(flash,0.42); shake=Math.max(shake,9); sfx('power'); pushFloat('SHIELD!','#9dffd0',20);
     for(let i=0;i<18;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-180,180),vy:rnd(-220,-20),life:.6,max:.6,r:rnd(2,3),c:'#9dffd0',g:200}); }
   else die(); }
-function shieldSave(){ shield--; p.invuln=0.5; flash=0.4; shake=8; sfx('power'); combo=0; flowT=0;
+function shieldSave(){ shield--; p.invuln=0.5; flash=0.4; shake=8; sfx('power'); combo=0; flowT=0; pushFloat('SHIELD!','#bdf5e8',20);
   // pop onto the next safe ground in whichever aspect is solid there
   let target=null; for(const s of segs){ if(s.x1<=p.wx)continue; if(s.bloom||s.cinder){ target=s; break; } }
   if(target){ if(aspect==='bloom'?!target.bloom:!target.cinder) aspect= target.bloom?'bloom':'cinder';
@@ -497,7 +497,7 @@ function update(dt){
       if(bothGapAt(p.wx)) sawGap=true;
       const prevY=p.y, ny=p.y+p.vy*dt;
       // land ONLY when descending onto the platform top (within a small snap) — fall too deep and you die
-      if(p.vy>0 && solid && ny>=GY && prevY<=GY+30){ p.y=GY; p.vy=0; p.onGround=true; p.coyote=T.coyote; sfx('land');
+      if(p.vy>0 && solid && ny>=GY && prevY<=GY+8){ p.y=GY; p.vy=0; p.onGround=true; p.coyote=T.coyote; sfx('land');
         if(sawGap){ nearMiss++; mprog('clutch',1); const ls=segAt(p.wx); const perfect=ls?(p.wx-ls.x0)<18:false;
           if(perfect)pushFloat('PERFECT LAND','#9dffd0'); addCombo(perfect); } sawGap=false; }
       else p.y=ny; }
