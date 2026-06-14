@@ -109,7 +109,7 @@ window.addEventListener('error', function(ev){
    (spikes to jump, low ceilings that force flip-not-jump).
    =================================================================== */
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
-const VW=960, VH=540, GY=384, ANCHOR=290, DEATH_Y=GY+250, PPM=64;
+let VW=960; const VH=540, GY=384, ANCHOR=290, DEATH_Y=GY+250, PPM=64;   // VW is responsive: matches the screen's aspect ratio so it fills full width
 const T={ baseSpeed:300, maxAdd:380, rampPer:42, G:2100, jumpV:735, cut:0.45, coyote:0.09, buffer:0.12,
   multMax:6, multDecay:0.34, multGain:0.5, magnetDur:6, odDur:4.5, odSpeed:1.7, biomeM:250 };
 
@@ -679,7 +679,13 @@ function frame(t){ const now=t/1000; let dt=now-last; last=now; if(dt>0.1)dt=0.1
 requestAnimationFrame(t=>{ last=t/1000; frame(t); });
 const LOW=(typeof matchMedia!=='undefined')&&matchMedia('(pointer:coarse)').matches;
 if(LOW){ document.getElementById('zones').style.display='block'; const rt=document.getElementById('rotate'); if(rt)rt.classList.add('armed'); }
-function fit(){ const s=Math.min(innerWidth/VW,innerHeight/VH)*0.985; cv.style.width=(VW*s)+'px'; cv.style.height=(VH*s)+'px'; }
+function fit(){
+  // match internal width to the screen aspect ratio (clamped) so the game fills the full width — no side bars
+  VW = Math.max(960, Math.min(1600, Math.round(VH * innerWidth / Math.max(1,innerHeight))));
+  if(cv.width!==VW) cv.width=VW;            // cv.height stays VH (540)
+  const s = Math.min(innerWidth/VW, innerHeight/VH);
+  cv.style.width=(VW*s)+'px'; cv.style.height=(VH*s)+'px';
+}
 addEventListener('resize',fit); fit(); syncButtons();
 
 /* ---- test hooks ---- */
