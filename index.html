@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#05040a">
 <title>EMBER RUN — EMBERWANE</title>
 <style>
   html,body{margin:0;height:100%;background:#05040a;overflow:hidden;
@@ -51,6 +54,14 @@
   <button class="close" id="closeShop">CLOSE</button>
 </div>
 <script>
+// On-screen error reporter — if anything throws (esp. on iOS Safari), show it instead of a silent "just a picture".
+window.addEventListener('error', function(ev){
+  try{ var d=document.getElementById('err');
+    if(!d){ d=document.createElement('div'); d.id='err';
+      d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:999;background:rgba(90,0,0,.92);color:#fff;font:12px monospace;padding:10px;white-space:pre-wrap;'; document.body.appendChild(d); }
+    d.textContent='Ember Run error: '+ev.message+'  ('+(ev.filename||'')+':'+ev.lineno+')';
+  }catch(e){}
+});
 /* ===================================================================
    EMBER RUN — endless auto-runner for EMBERWANE.
    Verbs: FLIP the world (left half) + JUMP (right half, hold=higher).
@@ -312,11 +323,14 @@ function flip(){ if(state!=='run')return;
 function jumpPress(){ if(state!=='run')return; p.jumpBuf=T.buffer; p.jumpHeld=true; }
 function jumpRelease(){ p.jumpHeld=false; }
 function tapStart(){ initAudio(); if(state==='title'||(state==='dead'&&deathT>=0.4)) startRun(); }
-cv.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio();
-  if(state!=='run'){ tapStart(); return; }
-  const r=cv.getBoundingClientRect(); const sx=(e.clientX-r.left)/r.width;
-  if(sx<0.5) flip(); else jumpPress(); });
-cv.addEventListener('pointerup',e=>{ e.preventDefault(); jumpRelease(); });
+function inputDown(clientX){ initAudio(); if(state!=='run'){ tapStart(); return; }
+  const r=cv.getBoundingClientRect(); const sx=(clientX-r.left)/Math.max(1,r.width); if(sx<0.5) flip(); else jumpPress(); }
+// mouse goes through pointer events; TOUCH goes through touch events (more reliable on iOS Safari). dedup so neither double-fires.
+cv.addEventListener('pointerdown',e=>{ if(e.pointerType&&e.pointerType!=='mouse')return; e.preventDefault(); inputDown(e.clientX); });
+cv.addEventListener('pointerup',e=>{ if(e.pointerType&&e.pointerType!=='mouse')return; e.preventDefault(); jumpRelease(); });
+cv.addEventListener('touchstart',e=>{ e.preventDefault(); if(e.changedTouches&&e.changedTouches[0]) inputDown(e.changedTouches[0].clientX); },{passive:false});
+cv.addEventListener('touchend',e=>{ e.preventDefault(); jumpRelease(); },{passive:false});
+cv.addEventListener('touchcancel',e=>{ jumpRelease(); },{passive:false});
 addEventListener('keydown',e=>{ if(e.repeat)return; initAudio();
   if(e.code==='KeyM'){ muted=!muted; if(master)master.gain.value=muted?0:0.3; return; }
   if(state!=='run'){ if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){e.preventDefault();tapStart();} return; }
