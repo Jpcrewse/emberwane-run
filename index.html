@@ -538,10 +538,10 @@ function spawnBoonOrbs(){ // NO pause — 3 boons appear as orbs at different he
   const rng = dailyMode ? TRE : Math.random;                                   // daily: seed boon choices too, so the run is identical for everyone
   const ids = BOONS.map(b=>b.id); for(let i=ids.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [ids[i],ids[j]]=[ids[j],ids[i]]; }
   const pick=ids.slice(0,3); const gid='b'+Math.round(runDist);
-  const heights=[GY-24, GY-84, GY-138];   // low = run through it · mid = small jump · high = full jump
+  const heights=[GY-22, GY-92, GY-150];   // a rising staircase: stay low for #1 · jump for #2 · full jump for #3
   const baseX=runDist+ANCHOR+VW*0.62;
-  for(let i=0;i<3;i++){ pickups.push({wx:baseX+i*10, y:heights[i], kind:'boon', boon:pick[i], grp:gid, got:false, bob:Math.random()*6}); }
-  areaCard={name:'CHOOSE A BOON — jump to pick',t:0,dur:2.0}; sfx('level'); }
+  for(let i=0;i<3;i++){ pickups.push({wx:baseX+i*82, y:heights[i], kind:'boon', boon:pick[i], grp:gid, got:false, bob:Math.random()*6}); }   // spread out so you steer to the one you want — grabbing one declines the rest
+  areaCard={name:'CHOOSE A BOON — run low or jump high',t:0,dur:2.2}; sfx('level'); }
 function applyBoon(id){ boons[id]=(boons[id]||0)+1;
   if(id==='heart') shield++;
   else if(id==='momentum') comboGain*=1.4;
@@ -799,18 +799,17 @@ addEventListener('blur',()=>{ p.jumpHeld=false; });
 /* ---- pickups update ---- */
 function collectPickups(dt,ods){ const magnet=magnetT>0||ods;
   const yc=p.y-16;   // collect from Wick's chest, not his feet
-  // boon groups: reaching the column ALWAYS grabs the orb nearest your height — pick by where you are, no missed pick
-  const bgrp={}; for(const k of pickups){ if(k.kind==='boon'&&!k.got)(bgrp[k.grp]=bgrp[k.grp]||[]).push(k); }
-  for(const gid in bgrp){ const arr=bgrp[gid]; if(Math.abs(p.wx-arr[0].wx)<38){ let best=arr[0]; for(const o of arr) if(Math.abs(o.y-yc)<Math.abs(best.y-yc)) best=o;
-    for(const o of arr) o.got=true; applyBoon(best.boon);
-    for(let i=0;i<22;i++)particles.push({x:ANCHOR,y:best.y,vx:rnd(-190,190),vy:rnd(-210,30),life:.6,max:.6,r:rnd(2,3),c:'#ffd9a0',g:120}); } }
-  for(const k of pickups){ if(k.got||k.kind==='boon')continue; k.bob+=dt;
+  for(const k of pickups){ if(k.got)continue; k.bob+=dt;
     let dx=k.wx-p.wx, dy=k.y-yc, dist=Math.hypot(dx,dy);
     if(k.kind==='ember'&&magnet&&dist<210){ k.wx-=dx*Math.min(1,dt*9); k.y-=dy*Math.min(1,dt*9); dx=k.wx-p.wx;dy=k.y-yc;dist=Math.hypot(dx,dy); }
-    const cr=k.kind==='ember'?(ods?46:26):32;
+    const cr=k.kind==='boon'?30:(k.kind==='ember'?(ods?46:26):32);
     if(dist<cr){ k.got=true;
       if(k.kind==='ember'){ embersRun+=(1+boons.gold+(rec.char==='gilde'?1:0)); mprog('embers',1); sfx('ember');
         for(let i=0;i<6;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-70,70),vy:rnd(-90,-10),life:.4,max:.4,r:rnd(1,2),c:'#ffd9a0',g:120}); }
+      else if(k.kind==='boon'){ applyBoon(k.boon);   // you steered into THIS one — grab it, decline the rest of the group
+        for(let i=0;i<22;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-200,200),vy:rnd(-220,30),life:.6,max:.6,r:rnd(2,3.5),c:'#ffd9a0',g:120});
+        for(const o of pickups){ if(o!==k&&o.kind==='boon'&&o.grp===k.grp&&!o.got){ o.got=true;   // boons you passed on — fizzle away
+          for(let z=0;z<7;z++)particles.push({x:o.wx-runDist,y:o.y,vx:rnd(-55,55),vy:rnd(-45,45),life:.45,max:.45,r:rnd(1.5,2.5),c:'rgba(150,140,165,0.8)',g:30}); } } }
       else { activatePower(k.kind); flash=0.3;
         for(let i=0;i<16;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-150,150),vy:rnd(-160,40),life:.6,max:.6,r:rnd(2,3),c:powColor(k.kind),g:120}); } }
   }
@@ -855,7 +854,7 @@ function update(dt){
   runTime+=dt;
   trueM=runDist/PPM; const nd=Math.floor(trueM/500);
   if(nd>depth){ depth=nd; depthTierUp(); }                                            // a new DEPTH tier every 500m — escalation never caps
-  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(420,depth*14))*(ods?T.odSpeed:1)*surgeMul;
+  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul;   // base ramp peaks early; depth keeps the runner accelerating far past 2km
   runDist+=runSpeed*dt; p.wx=runDist+ANCHOR; p.run+=dt*runSpeed*0.02;
   trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%BIOMES.length;               // biomes LOOP forever (rising corruption each lap)
   if(trueM>=nextDraftM){ nextDraftM+=350; spawnBoonOrbs(); }   // boon orbs every ~350m (no pause)
