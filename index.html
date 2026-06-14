@@ -141,9 +141,11 @@ const T={ baseSpeed:300, maxAdd:380, rampPer:42, G:2100, jumpV:735, cut:0.45, co
 /* ---- audio ---- */
 let AC,master,drone,muted=false;
 function initAudio(){ if(AC)return; try{ AC=new (window.AudioContext||window.webkitAudioContext)();
+  if(AC.resume)AC.resume();
   master=AC.createGain(); master.gain.value=muted?0:0.3; master.connect(AC.destination);
-  drone=AC.createOscillator(); const dg=AC.createGain(); dg.gain.value=0.05; drone.type='sine';
-  drone.frequency.value=70; drone.connect(dg); dg.connect(master); drone.start(); }catch(e){} }
+  drone=AC.createOscillator(); const dg=AC.createGain(); dg.gain.value=0.04; drone.type='sine';
+  drone.frequency.value=70; drone.connect(dg); dg.connect(master); drone.start();
+  startMusic(); }catch(e){} }
 function blip(f,d,type,v,to){ if(!AC||muted)return; const o=AC.createOscillator(),g=AC.createGain();
   o.type=type||'square'; o.frequency.value=f; if(to)o.frequency.exponentialRampToValueAtTime(to,AC.currentTime+d);
   g.gain.value=v||0.2; g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);
@@ -167,7 +169,52 @@ function sfx(n){ switch(n){
   case 'die':  blip(300,0.4,'sawtooth',0.25,70); noise(0.4,0.2,400); break;
   case 'best': blip(660,0.16,'sine',0.2,990); blip(990,0.22,'sine',0.16,1320); break;
 } }
-function setDrone(){ if(AC&&drone)drone.frequency.exponentialRampToValueAtTime(aspect==='bloom'?64:92,AC.currentTime+0.3); }
+function setDrone(){ if(AC&&drone){ const base=curMusic().root/2; drone.frequency.exponentialRampToValueAtTime(aspect==='bloom'?base:base*1.5,AC.currentTime+0.3); } }
+
+/* ---- adaptive music — procedural, layered, biome-aware (Web Audio, no asset files) ----
+   Each biome has its own scale/tempo/timbre; intensity (combo + depth + overdrive/surge)
+   fades in percussion, opens the filter, and thickens the arpeggio as the run heats up. */
+const MUSIC={
+  menu:  {root:130.81, scale:[0,3,5,7,10],   wave:'triangle', bpm:76},
+  cinder:{root:110.00, scale:[0,3,5,7,10],   wave:'sawtooth', bpm:98},   // A minor pentatonic — driving
+  grove: {root:130.81, scale:[0,2,4,7,9],    wave:'triangle', bpm:86},   // C major pentatonic — serene
+  ashen: {root:98.00,  scale:[0,2,3,7,8],    wave:'sawtooth', bpm:108},  // G phrygian-ish — tense
+  still: {root:146.83, scale:[0,2,3,5,7,10], wave:'sine',     bpm:74} }; // D dorian — ethereal
+let MUSIC_KEYS=['cinder','grove','ashen','still'];
+let musBus=null, musFilter=null, musTimer=null, musStep=0, musNextT=0, musArp=0, musDetune=0;
+function curMusic(){ return (state==='run') ? (MUSIC[MUSIC_KEYS[biomeIdx%MUSIC_KEYS.length]]||MUSIC.menu) : MUSIC.menu; }
+function musIntensity(){ if(state!=='run')return 0.12;
+  return Math.max(0,Math.min(1, combo/18*0.45 + Math.min(depth,12)/12*0.3 + (overdriveT>0?0.25:0) + (eventKind==='surge'?0.2:0) + (runSpeed-T.baseSpeed)/Math.max(1,T.maxAdd)*0.1)); }
+function noteFreq(cfg,deg,oct){ const n=cfg.scale.length; const i=((deg%n)+n)%n; const semi=cfg.scale[i]+12*(oct+Math.floor(deg/n)); return cfg.root*Math.pow(2,semi/12); }
+function musTone(time,freq,dur,type,gain){ if(!AC||muted)return; const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(freq,time); o.detune.value=musDetune;
+  g.gain.setValueAtTime(0.0001,time); g.gain.exponentialRampToValueAtTime(gain,time+0.02); g.gain.exponentialRampToValueAtTime(0.0001,time+dur);
+  o.connect(g); g.connect(musBus); o.start(time); o.stop(time+dur+0.05); }
+function musKick(time,gain){ if(!AC||muted)return; const o=AC.createOscillator(),g=AC.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(155,time); o.frequency.exponentialRampToValueAtTime(45,time+0.12);
+  g.gain.setValueAtTime(gain,time); g.gain.exponentialRampToValueAtTime(0.0001,time+0.15); o.connect(g); g.connect(musBus); o.start(time); o.stop(time+0.17); }
+function musHat(time,gain){ if(!AC||muted)return; const len=Math.max(1,Math.floor(AC.sampleRate*0.05)); const b=AC.createBuffer(1,len,AC.sampleRate); const da=b.getChannelData(0);
+  for(let i=0;i<len;i++)da[i]=Math.random()*2-1; const n=AC.createBufferSource(); n.buffer=b; const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6500;
+  const g=AC.createGain(); g.gain.setValueAtTime(gain,time); g.gain.exponentialRampToValueAtTime(0.0001,time+0.05); n.connect(hp); hp.connect(g); g.connect(musBus); n.start(time); n.stop(time+0.06); }
+function startMusic(){ if(!AC||musBus)return;
+  musFilter=AC.createBiquadFilter(); musFilter.type='lowpass'; musFilter.frequency.value=700; musFilter.Q.value=0.6;
+  musBus=AC.createGain(); musBus.gain.setValueAtTime(0.0001,AC.currentTime); musBus.gain.exponentialRampToValueAtTime(0.8,AC.currentTime+2.5);
+  musBus.connect(musFilter); musFilter.connect(master);
+  musNextT=AC.currentTime+0.12; musStep=0; if(musTimer)clearInterval(musTimer); musTimer=setInterval(musScheduler,25); }
+function musScheduler(){ if(!AC||!musBus)return; const cfg=curMusic(); const inten=musIntensity();
+  const bpm=cfg.bpm*(1+inten*0.12); const stepDur=60/bpm/4;                                  // 16th-note grid, tempo lifts with intensity
+  musFilter.frequency.setTargetAtTime(520+inten*3600,AC.currentTime,0.12);                   // brightness opens up as you heat up
+  const targetDet=(state==='run'&&eventKind==='invert')?-260:0; musDetune+=(targetDet-musDetune)*0.25;   // Inversion bends the whole track flat
+  let guard=0;
+  while(musNextT<AC.currentTime+0.13 && guard++<48){ const t=musNextT, s=musStep;
+    if(s%4===0) musTone(t,noteFreq(cfg,0,-1),stepDur*3.6,cfg.wave,0.16);                     // bass on each beat
+    if((s===0||s===8)&&inten>0.18) musKick(t,0.34+0.22*inten);                               // kick once percussion earns its place
+    if(inten>0.3&&s%2===1) musHat(t,0.05+0.05*inten);                                        // off-beat hats
+    const playArp=(s%4===0)||(inten>0.35&&s%2===0)||(inten>0.62);                            // arpeggio thickens with intensity
+    if(playArp){ musArp+=(Math.sin(s*1.7+musStep*0.3)>0?1:-1); if(musArp<0)musArp=0; if(musArp>9)musArp=9;
+      const oct=inten>0.55?1:0; musTone(t,noteFreq(cfg,musArp,oct+1),stepDur*1.8,cfg.wave,0.045+0.04*inten);
+      if(inten>0.7&&s%4===2) musTone(t,noteFreq(cfg,musArp+2,oct+1),stepDur*1.4,cfg.wave,0.035); }   // harmony layer at high intensity
+    musNextT+=stepDur; musStep=(s+1)%16; } }
 
 /* ---- biomes (each shifts the whole palette) ---- */
 const BIOMES=[
