@@ -179,8 +179,11 @@ const MUSIC={
   cinder:{root:110.00, scale:[0,3,5,7,10],   wave:'sawtooth', bpm:98},   // A minor pentatonic — driving
   grove: {root:130.81, scale:[0,2,4,7,9],    wave:'triangle', bpm:86},   // C major pentatonic — serene
   ashen: {root:98.00,  scale:[0,2,3,7,8],    wave:'sawtooth', bpm:108},  // G phrygian-ish — tense
-  still: {root:146.83, scale:[0,2,3,5,7,10], wave:'sine',     bpm:74} }; // D dorian — ethereal
-let MUSIC_KEYS=['cinder','grove','ashen','still'];
+  still: {root:146.83, scale:[0,2,3,5,7,10], wave:'sine',     bpm:74},   // D dorian — ethereal
+  frost: {root:123.47, scale:[0,2,3,5,7,9,10],wave:'sine',    bpm:70},   // B aeolian — cold, sparse
+  tempest:{root:116.54,scale:[0,1,5,7,8],     wave:'sawtooth',bpm:116},  // tense phrygian-dominant — electric
+  dune:  {root:138.59, scale:[0,2,4,6,7,9,11],wave:'triangle',bpm:92} }; // lydian — shimmering, warm
+let MUSIC_KEYS=['cinder','grove','ashen','still','frost','tempest','dune'];
 let musBus=null, musFilter=null, musTimer=null, musStep=0, musNextT=0, musArp=0, musDetune=0;
 function curMusic(){ return (state==='run') ? (MUSIC[MUSIC_KEYS[biomeIdx%MUSIC_KEYS.length]]||MUSIC.menu) : MUSIC.menu; }
 function musIntensity(){ if(state!=='run')return 0.12;
@@ -225,9 +228,15 @@ const BIOMES=[
  {name:'ASHEN REACH',  bloom:{sky0:'#10202a',sky1:'#080f14',gTop:'#3a8aa0',gBod:'#163039',ghost:'rgba(160,220,255,.16)',wick:'#e9f7ff',glow:'#5ab4d2',far:'#10303a'},
                        cinder:{sky0:'#241018',sky1:'#12080d',gTop:'#b03a55',gBod:'#3a1620',ghost:'rgba(255,160,190,.16)',wick:'#ffe0e9',glow:'#ff5a7a',far:'#3a1620'}},
  {name:'THE STILLNESS',bloom:{sky0:'#1a1430',sky1:'#0a0818',gTop:'#6a5ad2',gBod:'#241f39',ghost:'rgba(200,190,255,.16)',wick:'#f4f0ff',glow:'#9a8aff',far:'#241f39'},
-                       cinder:{sky0:'#2a1430',sky1:'#140818',gTop:'#a05ad2',gBod:'#391f39',ghost:'rgba(240,190,255,.16)',wick:'#ffeaff',glow:'#d28aff',far:'#391f39'}} ];
+                       cinder:{sky0:'#2a1430',sky1:'#140818',gTop:'#a05ad2',gBod:'#391f39',ghost:'rgba(240,190,255,.16)',wick:'#ffeaff',glow:'#d28aff',far:'#391f39'}},
+ {name:'FROSTREACH',  bloom:{sky0:'#0a2230',sky1:'#04121a',gTop:'#5ad2e0',gBod:'#143039',ghost:'rgba(170,240,255,.16)',wick:'#eafcff',glow:'#6ee0ff',far:'#103a44'},
+                      cinder:{sky0:'#161634',sky1:'#0a0a1c',gTop:'#8a9ad8',gBod:'#222a48',ghost:'rgba(205,215,255,.16)',wick:'#f0f4ff',glow:'#9ab4ff',far:'#222a48'}},
+ {name:'TEMPEST',     bloom:{sky0:'#14202a',sky1:'#0a0f14',gTop:'#4a7a8a',gBod:'#1a2630',ghost:'rgba(160,210,230,.16)',wick:'#e6f4ff',glow:'#7ab0d0',far:'#16242e'},
+                      cinder:{sky0:'#1c1432',sky1:'#0e0818',gTop:'#7a5ad8',gBod:'#2a1f46',ghost:'rgba(210,180,255,.16)',wick:'#f0e6ff',glow:'#b08aff',far:'#2a1f46'}},
+ {name:'DUNESEA',     bloom:{sky0:'#101a2a',sky1:'#080c16',gTop:'#6a78a0',gBod:'#1a2236',ghost:'rgba(185,205,255,.15)',wick:'#eef2ff',glow:'#8aa0d8',far:'#1a2236'},
+                      cinder:{sky0:'#2e1d08',sky1:'#160c04',gTop:'#d2a050',gBod:'#3a2810',ghost:'rgba(255,210,140,.16)',wick:'#fff0d0',glow:'#ffb840',far:'#3a2810'}} ];
 function biome(){ return BIOMES[Math.min(BIOMES.length-1,biomeIdx)]; }
-const BIOME_ACC=['#ff7a2a','#6ee08a','#9fb4c8','#b9a0ff'];
+const BIOME_ACC=['#ff7a2a','#6ee08a','#9fb4c8','#b9a0ff','#9fe8ff','#bcdcff','#ffd98a'];
 
 /* ---- themed background props per biome ---- */
 function drawDeadTree(x,h){ ctx.save(); ctx.translate(x,GY); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=4; ctx.lineCap='round';
@@ -304,6 +313,24 @@ function drawLeviathan(x,y){ if(x<-320||x>VW+320)return; ctx.save(); ctx.globalC
   ctx.fillStyle='rgba(225,215,255,0.7)'; ctx.beginPath(); ctx.arc(42,-8,3.2,0,Math.PI*2); ctx.fill();           // eye
   for(let i=0;i<7;i++){ ctx.globalAlpha=0.25+0.22*Math.sin(runDist*0.01+i); ctx.beginPath(); ctx.arc(-66+i*26,-18+Math.sin(i)*5,2,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1;
   ctx.restore(); }
+function drawIceSpire(x,h){ ctx.save(); ctx.translate(x,GY);
+  ctx.fillStyle='rgba(150,220,240,0.26)'; ctx.beginPath(); ctx.moveTo(-26,0); ctx.lineTo(-8,-h*0.7); ctx.lineTo(0,-h); ctx.lineTo(10,-h*0.6); ctx.lineTo(26,0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(220,245,255,0.2)'; ctx.beginPath(); ctx.moveTo(-9,0); ctx.lineTo(0,-h); ctx.lineTo(8,-h*0.55); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(180,240,255,0.5)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(-3,-h*0.2); ctx.lineTo(2,-h*0.9); ctx.stroke(); ctx.restore();
+  ctx.restore(); }
+function drawStormSpire(x){ if(x<-260||x>VW+260)return; ctx.save(); ctx.translate(x,GY); ctx.fillStyle='rgba(20,18,34,0.92)';
+  ctx.beginPath(); ctx.moveTo(-30,0); ctx.lineTo(-12,-240); ctx.lineTo(6,-262); ctx.lineTo(2,-150); ctx.lineTo(20,-200); ctx.lineTo(30,0); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(185,205,255,'+(0.25+0.55*Math.abs(Math.sin(runDist*0.05)))+')'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(2,-258); let yy=-258,xx=2; for(let k=0;k<6;k++){ const ny=yy+40, nx=xx+(k%2?24:-20); ctx.lineTo(nx,ny); yy=ny; xx=nx; } ctx.stroke(); ctx.restore();
+  ctx.restore(); }
+function drawRain(){ ctx.save(); ctx.strokeStyle='rgba(180,210,255,0.16)'; ctx.lineWidth=1.4;
+  for(let i=0;i<64;i++){ let x=((i*53 - runDist*0.9)%(VW+60)); if(x<0)x+=VW+60; x-=30; const y=((i*97 + runDist*1.4)%(GY+40)); ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-6,y+18); ctx.stroke(); }
+  ctx.restore(); }
+function drawPyramid(x,h){ if(x<-h-40||x>VW+h+40)return; ctx.save(); ctx.translate(x,GY);
+  ctx.fillStyle='rgba(60,44,24,0.85)'; ctx.beginPath(); ctx.moveTo(-h*0.9,0); ctx.lineTo(0,-h); ctx.lineTo(h*0.9,0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(38,26,12,0.85)'; ctx.beginPath(); ctx.moveTo(0,-h); ctx.lineTo(h*0.9,0); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(255,200,120,0.22)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,-h); ctx.lineTo(0,0); ctx.stroke();
+  ctx.restore(); }
 function drawBiomeProps(P){ const idx=Math.min(BIOMES.length-1,biomeIdx); const acc=BIOME_ACC[idx]; const off=runDist*0.12;
   if(idx===0){ // CINDERFIELDS — erupting volcano, burnt forest, ember storm
     drawPeaks(GY,72,'rgba(28,11,7,0.7)',0.05);                                            // far volcanic ridge
@@ -323,14 +350,31 @@ function drawBiomeProps(P){ const idx=Math.min(BIOMES.length-1,biomeIdx); const 
     ctx.fillStyle='rgba(28,20,28,0.72)'; const pw=215; for(let i=-1;i<VW/pw+2;i++){ const x=i*pw-(off%pw)+30; drawTower(x,150+((i*67)%150)); }   // shattered towers
     const cw=1040; for(let i=-1;i<VW/cw+2;i++){ drawColossus(i*cw-((runDist*0.092)%cw)+320); }   // 🗿 signature fallen colossus
     drawMotes(acc,'down',36);
-  } else { // THE STILLNESS — drifting leviathan, aurora, void-moon, stars, monoliths
+  } else if(idx===3){ // THE STILLNESS — drifting leviathan, aurora, void-moon, stars, monoliths
     drawAurora();
     const m=ctx.createRadialGradient(VW*0.72,140,10,VW*0.72,140,155); m.addColorStop(0,'rgba(228,218,255,0.5)'); m.addColorStop(1,'rgba(228,218,255,0)');
     ctx.fillStyle=m; ctx.beginPath(); ctx.arc(VW*0.72,140,155,0,Math.PI*2); ctx.fill();
     ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='#fff';
     for(let i=0;i<42;i++){ const sx=(i*131)%VW, sy=(i*71)%(GY-60)+20; ctx.globalAlpha=0.25+0.55*Math.abs(Math.sin(runDist*0.01+i*1.7)); ctx.fillRect(sx,sy,1.7,1.7); } ctx.restore();
     const lw=1120; for(let i=-1;i<VW/lw+2;i++){ drawLeviathan(i*lw-((runDist*0.05)%lw)+240, 180+((i*53)%80)); }   // 🐋 signature leviathan
-    ctx.fillStyle='rgba(200,190,255,0.55)'; const fw=340; for(let i=-1;i<VW/fw+2;i++){ const x=i*fw-(off%fw)+90; const yy=100+((i*97)%180)+Math.sin(runDist*0.002+i)*12; drawSlab(x,yy,90+((i*31)%70)); } } }
+    ctx.fillStyle='rgba(200,190,255,0.55)'; const fw=340; for(let i=-1;i<VW/fw+2;i++){ const x=i*fw-(off%fw)+90; const yy=100+((i*97)%180)+Math.sin(runDist*0.002+i)*12; drawSlab(x,yy,90+((i*31)%70)); }
+  } else if(idx===4){ // FROSTREACH — towering ice spires, glacial haze, drifting snow
+    drawPeaks(GY,82,'rgba(120,180,210,0.18)',0.045);                                        // far glacier wall
+    const sg=ctx.createRadialGradient(VW*0.3,116,10,VW*0.3,116,150); sg.addColorStop(0,'rgba(200,240,255,0.16)'); sg.addColorStop(1,'rgba(200,240,255,0)'); ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(VW*0.3,116,150,0,Math.PI*2); ctx.fill();
+    const iw=150; for(let i=-1;i<VW/iw+2;i++){ const x=i*iw-(off%iw)+24; drawIceSpire(x,90+((i*47)%120)); }   // ❄ signature ice spires
+    drawMotes('#dff4ff','down',40);
+  } else if(idx===5){ // TEMPEST — lightning-wreathed spire, driving rain, thunder flashes
+    drawPeaks(GY,70,'rgba(18,22,32,0.6)',0.05);
+    if(Math.sin(runDist*0.013)>0.985){ ctx.fillStyle='rgba(205,218,255,0.5)'; ctx.fillRect(0,0,VW,VH); }   // lightning flash
+    const tw=900; for(let i=-1;i<VW/tw+2;i++){ drawStormSpire(i*tw-((runDist*0.08)%tw)+260); }   // ⚡ signature storm spire
+    drawRain();
+    drawMotes(acc,'down',18);
+  } else { // DUNESEA — colossal half-buried pyramid, rolling dunes, low sun
+    const su=ctx.createRadialGradient(VW*0.7,GY-30,10,VW*0.7,GY-30,210); su.addColorStop(0,'rgba(255,180,90,0.3)'); su.addColorStop(1,'rgba(255,140,60,0)'); ctx.fillStyle=su; ctx.fillRect(0,GY-230,VW,250);
+    drawPeaks(GY,60,'rgba(80,58,30,0.5)',0.03);                                              // far dunes
+    const pw=1000; for(let i=-1;i<VW/pw+2;i++){ drawPyramid(i*pw-((runDist*0.07)%pw)+300, 150+((i*53)%60)); }   // 🔺 signature pyramid
+    ctx.fillStyle='rgba(120,90,46,0.5)'; const dw=260; for(let i=-1;i<VW/dw+2;i++){ const x=i*dw-((runDist*0.18)%dw); ctx.beginPath(); ctx.moveTo(x,GY); ctx.quadraticCurveTo(x+130,GY-24,x+260,GY); ctx.lineTo(x+260,GY+6); ctx.lineTo(x,GY+6); ctx.closePath(); ctx.fill(); }   // near dune ridge
+    drawMotes(acc,'still',16); } }
 
 /* ---- skins & upgrades ---- */
 const SKINS={ ember:{name:'Ember (default)',cost:0,wick:null,glow:null},
@@ -421,6 +465,7 @@ const ACH=[
  {id:'tot10k',ico:'🛣', n:'Marathoner',         d:'Run 10 km total',      t:r=>r.total>=10000},
  {id:'emb1k', ico:'✦', n:'Ember Hoarder',      d:'Earn 1000 embers',     t:r=>r.embersEarned>=1000},
  {id:'biome3',ico:'🌌', n:'Into the Stillness', d:'Reach The Stillness',  t:r=>r.maxBiome>=3},
+ {id:'biome6',ico:'🌍', n:'The Far Wane',       d:'Reach the Dunesea',    t:r=>r.maxBiome>=6},
  {id:'flip500',ico:'🔄',n:'World Turner',       d:'Flip 500 times',       t:r=>r.flipsTotal>=500},
  {id:'perf10',ico:'🎯', n:'Perfectionist',      d:'10 perfects in a run', t:r=>r.bestPerfects>=10},
  {id:'runs50',ico:'🏅', n:'Dedicated',          d:'Play 50 runs',         t:r=>r.runs>=50},
