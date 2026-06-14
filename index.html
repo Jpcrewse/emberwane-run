@@ -43,6 +43,9 @@
   #btnL{position:fixed;z-index:12;left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));
     display:none;background:rgba(20,16,32,.7);border:1.5px solid rgba(160,200,255,.5);color:#bdf5e8;
     padding:9px 14px;border-radius:22px;font-weight:bold;letter-spacing:1px;font-size:15px;cursor:pointer;}
+  #btnDaily{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));
+    display:none;background:rgba(30,20,40,.8);border:1.5px solid rgba(255,210,140,.55);color:#ffd9a0;
+    padding:11px 20px;border-radius:24px;font-weight:bold;letter-spacing:1px;font-size:14px;cursor:pointer;}
   /* shared full-screen overlays (pause + history) */
   .ov{position:fixed;inset:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;
     background:rgba(5,4,10,.93);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);overflow:auto;padding:24px 12px;}
@@ -70,6 +73,7 @@
 <div id="rotate">↻<br>Rotate to landscape<br>for EMBER RUN.</div>
 <button id="openShop">✦ SHOP</button>
 <button id="btnL">≡ HISTORY</button>
+<button id="btnDaily">🗓 DAILY CHALLENGE</button>
 <div id="shop">
   <h2>EMBER SHOP</h2>
   <div class="wallet" id="shopWallet"></div>
@@ -236,6 +240,11 @@ const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cu
 let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0;
 let pickups=[], particles=[];
 const rnd=(a,b)=>a+Math.random()*(b-a);
+/* daily seeded RNG: terrain (TRT) + events (TRE) use these so a daily run is identical for everyone */
+let dailyMode=false, TRT=Math.random, TRE=Math.random;
+const trnd=(a,b)=>a+TRT()*(b-a);
+function mulberry32(s){ return function(){ s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function dateSeed(){ const d=new Date(); let h=2166136261; const str=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ---- records / wallet / progression (localStorage) ---- */
@@ -295,11 +304,11 @@ function reachNow(){ const air=2*T.jumpV/T.G; return runSpeed*air*0.92; }
 function pushSeg(w,b,c,extra){ const s=Object.assign({x0:genX,x1:genX+w,bloom:b,cinder:c,kind:'rest'},extra||{}); segs.push(s); genX+=w; return s; }
 function pushEmber(x,y){ pickups.push({wx:x,y:y,kind:'ember',got:false,bob:Math.random()*6}); }
 function pushPower(x,y,kind){ pickups.push({wx:x,y:y,kind:kind,got:false,bob:Math.random()*6}); }
-function randPower(){ const r=Math.random(); return r<0.45?'magnet':r<0.8?'shield':'overdrive'; }
+function randPower(){ const r=TRT(); return r<0.45?'magnet':r<0.8?'shield':'overdrive'; }
 function spawnPickups(s){
   if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } return; }
   const w=s.x1-s.x0; if(w<70) return;
-  const r=Math.random();
+  const r=TRT();
   if(s.kind==='rest' && w>250 && r<0.42){          // ~40% of rests reward a jump
     if(r<0.20){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
       for(let i=0;i<n;i++){ const f=i/(n-1); pushEmber(cx0+span*f, GY-30-Math.sin(f*Math.PI)*86); } }
@@ -316,19 +325,19 @@ function spawnPickups(s){
 function genAhead(){
   while(genX < runDist+VW+700){
     const d=Math.min(1,runDist/16000);
-    if(needRest){ const s=pushSeg(rnd(330,430),true,true,{kind:'rest'}); needRest=false; spawnPickups(s);   // generous landing zone after every obstacle
-      sincePower++; if(sincePower>5 && runDist>700 && Math.random()<0.5){ sincePower=0; pushPower(s.x0+(s.x1-s.x0)/2, GY-40, randPower()); } continue; }
-    const r=Math.random();
+    if(needRest){ const s=pushSeg(trnd(330,430),true,true,{kind:'rest'}); needRest=false; spawnPickups(s);   // generous landing zone after every obstacle
+      sincePower++; if(sincePower>5 && runDist>700 && TRT()<0.5){ sincePower=0; pushPower(s.x0+(s.x1-s.x0)/2, GY-40, randPower()); } continue; }
+    const r=TRT();
     const pPlain=(0.30-0.14*d)*(eventKind==='surge'?0.45:1), pGap=0.20+0.16*d;   // denser obstacles during a surge
     const types=['hole','pit']; if(biomeIdx>=1){types.push('spike');types.push('wall');} if(biomeIdx>=2)types.push('pitceil');
-    if(r<pPlain){ const s=pushSeg(rnd(220,320-120*d),true,true,{kind:'rest'}); spawnPickups(s); }
+    if(r<pPlain){ const s=pushSeg(trnd(220,320-120*d),true,true,{kind:'rest'}); spawnPickups(s); }
     else if(r<pPlain+pGap){ const w=Math.min(reachNow()*0.45,reachNow()*0.5); const s=pushSeg(Math.max(90,w),false,false,{kind:'hole'}); spawnPickups(s); needRest=true; }
-    else { const k=types[Math.floor(Math.random()*types.length)];
-      if(k==='spike'){ const w=rnd(220,300); const s=pushSeg(w,true,true,{kind:'spike',spikeX:genX+w/2,spikeW:30}); spawnPickups(s); needRest=true; }
-      else if(k==='wall'){ const w=rnd(210,280); const wa=Math.random()<0.5?'bloom':'cinder';
+    else { const k=types[Math.floor(TRT()*types.length)];
+      if(k==='spike'){ const w=trnd(220,300); const s=pushSeg(w,true,true,{kind:'spike',spikeX:genX+w/2,spikeW:30}); spawnPickups(s); needRest=true; }
+      else if(k==='wall'){ const w=trnd(210,280); const wa=TRT()<0.5?'bloom':'cinder';
         const s=pushSeg(w,true,true,{kind:'wall',wallAspect:wa,wallX:genX+w*0.6,wallW:22}); spawnPickups(s); needRest=true; }
       else { lastAspect=lastAspect==='bloom'?'cinder':'bloom';
-        const w= k==='pitceil'? rnd(150,210) : rnd(150,260-60*d);
+        const w= k==='pitceil'? trnd(150,210) : trnd(150,260-60*d);
         const s=pushSeg(w, lastAspect==='bloom', lastAspect==='cinder', k==='pitceil'?{kind:'pitceil',ceilY:330}:{kind:'pit'});
         spawnPickups(s); needRest=true; } }
   }
@@ -343,7 +352,9 @@ function bothGapAt(wx){ const s=segAt(wx); return s? (!s.bloom&&!s.cinder):false
 function applyUpgrades(){ const u=rec.upgrades;
   meters = u.spark*40; magnetExtra=u.magnet*1.5; shield=u.shield;
   comboGain = 0.18*(1+u.focus*0.12); mult=1; combo=0; flowT=0; }
-function startRun(){ state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
+function startRun(){
+  if(dailyMode){ const sd=dateSeed(); TRT=mulberry32(sd); TRE=mulberry32((sd^0x9e3779b9)>>>0); } else { TRT=Math.random; TRE=Math.random; }
+  state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
   streak=0; nearMiss=0; best=false; flash=0; shake=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
   combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; paused=false;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0;
@@ -374,7 +385,7 @@ function die(){ if(state!=='run')return; state='dead'; deathT=0; shake=14; sfx('
   if(runTime>rec.bestTime) rec.bestTime=runTime;
   if(streak>rec.bestStreak) rec.bestStreak=streak;
   if(rec.dayKey!==today()){ rec.dayKey=today(); rec.dayBest=0; }
-  if(dm>rec.dayBest) rec.dayBest=dm;
+  if(dailyMode && dm>rec.dayBest) rec.dayBest=dm;
   rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun);
   checkAchievements();
   saveRec(); syncButtons(); }
@@ -390,7 +401,8 @@ function flip(){ if(state!=='run')return;
     for(let i=0;i<10;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-140,140),vy:rnd(-180,-20),life:.5,max:.5,r:rnd(1,3),c:'#fff',g:60}); } }
 function jumpPress(){ if(state!=='run')return; p.jumpBuf=T.buffer; p.jumpHeld=true; }
 function jumpRelease(){ p.jumpHeld=false; }
-function tapStart(){ initAudio(); if(state==='title'||(state==='dead'&&deathT>=0.4)) startRun(); }
+function tapStart(){ initAudio(); if(state==='title'){ dailyMode=false; startRun(); } else if(state==='dead'&&deathT>=0.4){ startRun(); } }   // tap-again keeps the same mode
+function startDaily(){ initAudio(); dailyMode=true; startRun(); }
 function inputDown(clientX){ initAudio(); if(state!=='run'){ tapStart(); return; }
   const r=cv.getBoundingClientRect(); const sx=(clientX-r.left)/Math.max(1,r.width); if(sx<0.5) flip(); else jumpPress(); }
 // mouse goes through pointer events; TOUCH goes through touch events (more reliable on iOS Safari). dedup so neither double-fires.
@@ -429,7 +441,7 @@ function activatePower(kind){ sfx('power');
   else if(kind==='shield') shield++;
   else if(kind==='overdrive') overdriveT=T.odDur; }
 function powColor(k){ return k==='magnet'?'#bda0ff':k==='shield'?'#9dffd0':'#ffb030'; }
-function startEvent(){ const opts=['invert','frenzy','surge']; eventKind=opts[Math.floor(Math.random()*opts.length)]; eventT=EVENT_DUR[eventKind];
+function startEvent(){ const opts=['invert','frenzy','surge']; eventKind=opts[Math.floor(TRE()*opts.length)]; eventT=EVENT_DUR[eventKind];
   if(eventKind==='invert'){ flipTarget=-1; areaCard={name:'INVERSION',t:0,dur:2.2}; sfx('invert'); flash=Math.max(flash,0.5); shake=Math.max(shake,9);
     for(let i=0;i<10;i++) pushEmber(runDist+ANCHOR+260+i*60, GY-58-Math.sin(i*0.6)*64); }   // hidden ember trail
   else if(eventKind==='frenzy'){ surgeMul=1; areaCard={name:'✦ EMBER FRENZY ✦',t:0,dur:2.2}; sfx('level'); flash=Math.max(flash,0.4); }
@@ -587,7 +599,7 @@ function drawHUD(){ const dm=Math.floor(meters);
   // embers
   ctx.textAlign='left'; ctx.fillStyle='#ffcf6a'; ctx.font='bold 18px Trebuchet MS'; ctx.fillText('✦ '+embersRun,16,28);
   // biome
-  ctx.textAlign='right'; ctx.fillStyle='rgba(244,234,216,.5)'; ctx.font='12px Trebuchet MS'; ctx.fillText(biome().name+(rec.bestDist?'   ·   BEST '+rec.bestDist+'m':''),VW-14,24);
+  ctx.textAlign='right'; ctx.fillStyle=dailyMode?'#ffd9a0':'rgba(244,234,216,.5)'; ctx.font='12px Trebuchet MS'; ctx.fillText((dailyMode?'🗓 DAILY · ':'')+biome().name+(rec.bestDist?'   ·   BEST '+rec.bestDist+'m':''),VW-14,24);
   // power-up timers
   let py=44; ctx.textAlign='right';
   if(magnetT>0){ ctx.fillStyle='#bda0ff'; ctx.fillText('M '+magnetT.toFixed(1)+'s',VW-14,py); py+=18; }
@@ -652,6 +664,7 @@ function draw(){ const B=biome(); const P=B[aspect]; const IN=B[aspect==='bloom'
 let shopOpen=false, shopTab='skins';
 function syncButtons(){ const anyOv=shopOpen||historyOpen||paused;
   document.getElementById('openShop').style.display=(state!=='run'&&!anyOv)?'block':'none';
+  document.getElementById('btnDaily').style.display=(state==='title'&&!anyOv)?'block':'none';
   const bl=document.getElementById('btnL');
   if(state==='run'){ bl.style.display=(!anyOv)?'block':'none'; bl.textContent='⏸'; }
   else { bl.style.display=(!anyOv)?'block':'none'; bl.textContent='≡ HISTORY'; } }
@@ -660,7 +673,7 @@ function closeShop(){ shopOpen=false; document.getElementById('shop').style.disp
 /* ---- pause / main menu / history ---- */
 function pauseGame(){ if(state!=='run')return; paused=true; document.getElementById('pmMute').textContent='SOUND: '+(muted?'OFF':'ON'); document.getElementById('pauseMenu').style.display='flex'; syncButtons(); }
 function resumeGame(){ paused=false; document.getElementById('pauseMenu').style.display='none'; last=performance.now()/1000; syncButtons(); }
-function toTitle(){ state='title'; paused=false; document.getElementById('pauseMenu').style.display='none';
+function toTitle(){ state='title'; paused=false; dailyMode=false; document.getElementById('pauseMenu').style.display='none';
   segs=[]; pickups=[]; particles=[]; floats=[]; biomeIdx=0; p.y=GY; p.wx=ANCHOR; p.invuln=0; combo=0; flowT=0; syncButtons(); }
 function openHistory(){ historyOpen=true; renderHistory(); document.getElementById('history').style.display='flex'; syncButtons(); }
 function closeHistory(){ historyOpen=false; document.getElementById('history').style.display='none'; syncButtons(); }
@@ -681,6 +694,7 @@ document.getElementById('pmRestart').onclick=()=>{ paused=false; document.getEle
 document.getElementById('pmMenu').onclick=toTitle;
 document.getElementById('pmMute').onclick=function(){ muted=!muted; if(master)master.gain.value=muted?0:0.3; rec.muted=muted; saveRec(); this.textContent='SOUND: '+(muted?'OFF':'ON'); };
 document.getElementById('closeHist').onclick=closeHistory;
+document.getElementById('btnDaily').onclick=startDaily;
 function renderShop(){ document.getElementById('shopWallet').textContent='✦ '+rec.embers+' embers';
   document.querySelectorAll('#shop .tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===shopTab));
   const rows=document.getElementById('shopRows'); rows.innerHTML='';
@@ -731,7 +745,8 @@ window.__run={ get state(){return state;}, get p(){return p;}, get meters(){retu
   get segs(){return segs;}, set runDist(v){runDist=v; p.wx=runDist+ANCHOR;}, set aspect(v){aspect=v;},
   get combo(){return combo;}, get flowT(){return flowT;}, get floats(){return floats;}, get hitstop(){return hitstop;},
   get invertT(){return eventKind==='invert'?eventT:0;}, get flipY(){return flipY;}, set invCd(v){eventCd=v;},
-  get eventKind(){return eventKind;}, get eventT(){return eventT;}, get surgeMul(){return surgeMul;} };
+  get eventKind(){return eventKind;}, get eventT(){return eventT;}, get surgeMul(){return surgeMul;},
+  get dailyMode(){return dailyMode;}, set dailyMode(v){dailyMode=v;}, startDaily };
 </script>
 </body>
 </html>
