@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#05040a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ember Run">
 <title>EMBER RUN — EMBERWANE</title>
 <style>
   html,body{margin:0;height:100%;background:#05040a;overflow:hidden;
@@ -1141,5 +1145,7 @@ window.__run={ get state(){return state;}, get p(){return p;}, get meters(){retu
   openMap, tapMap, mapUpdate, toTitle, get mapAvX(){return mapAvX;}, get BEACONS(){return BEACONS;}, set embersRun(v){embersRun=v;}, die, get beaconBonus(){return beaconBonus();},
   ascend, ascReady, checkUnlocks, applyCharacter, get ETERNAL(){return ETERNAL;}, get emberMult(){return emberMult();}, get ascBonus(){return ascBonus();} };
 </script>
+<script>/* PWA: register the service worker for installable / offline play (silently no-ops if unsupported or missing) */
+if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }</script>
 </body>
 </html>
