@@ -223,8 +223,21 @@ function pushEmber(x,y){ pickups.push({wx:x,y:y,kind:'ember',got:false,bob:Math.
 function pushPower(x,y,kind){ pickups.push({wx:x,y:y,kind:kind,got:false,bob:Math.random()*6}); }
 function randPower(){ const r=Math.random(); return r<0.45?'magnet':r<0.8?'shield':'overdrive'; }
 function spawnPickups(s){
-  if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } }
-  else { for(let x=s.x0+34;x<s.x1-22;x+=48){ if(s.kind==='spike'&&Math.abs(x-s.spikeX)<42)continue; pushEmber(x, GY-28); } }
+  if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } return; }
+  const w=s.x1-s.x0; if(w<70) return;
+  const r=Math.random();
+  if(s.kind==='rest' && w>250 && r<0.42){          // ~40% of rests reward a jump
+    if(r<0.20){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
+      for(let i=0;i<n;i++){ const f=i/(n-1); pushEmber(cx0+span*f, GY-30-Math.sin(f*Math.PI)*86); } }
+    else { const cx=s.x0+w*0.5;                              // a floating high cluster — jump straight up
+      pushEmber(cx-24,GY-86); pushEmber(cx,GY-104); pushEmber(cx+24,GY-86);
+      pushEmber(cx-78,GY-28); pushEmber(cx+78,GY-28); }
+  } else {                                          // easy ground line (baseline)
+    for(let x=s.x0+34;x<s.x1-22;x+=48){
+      if(s.kind==='spike'&&Math.abs(x-s.spikeX)<42)continue;
+      if(s.kind==='wall'&&Math.abs(x-s.wallX)<30)continue;
+      pushEmber(x, GY-28); }
+  }
 }
 function genAhead(){
   while(genX < runDist+VW+700){
