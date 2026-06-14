@@ -456,7 +456,7 @@ let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenz
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
 let embersRun=0, magnetT=0, overdriveT=0, shield=0, magnetExtra=0;
 const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0,airJumps:0 };
-let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0;
+let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0, sinceChest=0;
 let pickups=[], particles=[];
 const rnd=(a,b)=>a+Math.random()*(b-a);
 /* daily seeded RNG: terrain (TRT) + events (TRE) use these so a daily run is identical for everyone */
@@ -688,6 +688,8 @@ function spawnPickups(s){
     for(let x=s.x0+34;x<s.x1-22;x+=48){
       if(s.kind==='spike'&&Math.abs(x-s.spikeX)<42)continue;
       if(s.kind==='wall'&&Math.abs(x-s.wallX)<30)continue;
+      if(s.kind==='bolt'&&Math.abs(x-s.boltX)<48)continue;
+      if(s.kind==='geyser'&&Math.abs(x-s.geyserX)<36)continue;
       pushEmber(x, GY-28); }
   }
 }
@@ -695,14 +697,20 @@ function genAhead(){
   while(genX < runDist+VW+700){
     const d=Math.min(1,runDist/16000)+Math.min(0.55,depth*0.06);   // base caps as before; ONLY depth adds extra density on top
     if(needRest){ const s=pushSeg(trnd(330,430),true,true,{kind:'rest'}); needRest=false; spawnPickups(s);   // generous landing zone after every obstacle
-      sincePower++; if(sincePower>5 && runDist>700 && TRT()<0.5){ sincePower=0; pushPower(s.x0+(s.x1-s.x0)/2, GY-40, randPower()); } continue; }
+      sincePower++; if(sincePower>5 && runDist>700 && TRT()<0.5){ sincePower=0; pushPower(s.x0+(s.x1-s.x0)/2, GY-40, randPower()); }
+      sinceChest++; if(sinceChest>6 && runDist>500 && TRT()<0.17){ sinceChest=0;            // rare high-value chest — full-jump to reach
+        pickups.push({wx:s.x0+(s.x1-s.x0)/2, y:GY-132, kind:'chest', got:false, bob:Math.random()*6}); } continue; }
     const r=TRT();
     const pPlain=(0.30-0.14*d)*(eventKind==='surge'?0.45:1), pGap=0.20+0.16*d;   // denser obstacles during a surge
     const types=['hole','pit']; if(biomeIdx>=1){types.push('spike');types.push('wall');} if(biomeIdx>=2)types.push('pitceil');
+    if(depth>=2){ if(biomeIdx===5){ types.push('bolt'); if(depth>=5)types.push('bolt'); }      // signature biome hazards — gentle early (depth>=2 only)
+      else if(biomeIdx===6){ types.push('geyser'); if(depth>=5)types.push('geyser'); } }
     if(r<pPlain){ const s=pushSeg(trnd(220,320-120*d),true,true,{kind:'rest'}); spawnPickups(s); }
     else if(r<pPlain+pGap){ const w=Math.min(reachNow()*0.45,reachNow()*0.5); const s=pushSeg(Math.max(90,w),false,false,{kind:'hole'}); spawnPickups(s); needRest=true; }
     else { const k=types[Math.floor(TRT()*types.length)];
       if(k==='spike'){ const w=trnd(220,300); const s=pushSeg(w,true,true,{kind:'spike',spikeX:genX+w/2,spikeW:30}); spawnPickups(s); needRest=true; }
+      else if(k==='bolt'){ const w=trnd(230,300); const s=pushSeg(w,true,true,{kind:'bolt',boltX:genX+w/2,boltW:42}); spawnPickups(s); needRest=true; }       // Tempest: lightning — JUMP over it
+      else if(k==='geyser'){ const w=trnd(210,280); const s=pushSeg(w,true,true,{kind:'geyser',geyserX:genX+w/2,geyserW:32}); spawnPickups(s); needRest=true; }  // Dunesea: sand spout — DON'T jump
       else if(k==='wall'){ const w=trnd(210,280); const wa=TRT()<0.5?'bloom':'cinder';
         const s=pushSeg(w,true,true,{kind:'wall',wallAspect:wa,wallX:genX+w*0.6,wallW:22}); spawnPickups(s); needRest=true; }
       else { lastAspect=lastAspect==='bloom'?'cinder':'bloom';
@@ -730,7 +738,7 @@ function startRun(){
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
   applyUpgrades(); applyCharacter();
   p.wx=ANCHOR; p.y=GY; p.vy=0; p.onGround=true; p.coyote=0; p.jumpBuf=0; p.jumpHeld=false; p.cutDone=true; p.run=0; p.invuln=0;
-  segs=[]; genX=0; lastAspect='bloom'; needRest=false; sincePower=0; pickups=[]; particles=[]; wickTrail.length=0;
+  segs=[]; genX=0; lastAspect='bloom'; needRest=false; sincePower=0; sinceChest=0; pickups=[]; particles=[]; wickTrail.length=0;
   pushSeg(1200,true,true,{kind:'rest'}); genAhead(); setDrone();
   paceRec=[{t:0,d:0}]; paceAcc=0; syncButtons();
   const zn=document.getElementById('zones');                       // control hints only on the very first run, then fade away
@@ -802,10 +810,11 @@ function collectPickups(dt,ods){ const magnet=magnetT>0||ods;
   for(const k of pickups){ if(k.got)continue; k.bob+=dt;
     let dx=k.wx-p.wx, dy=k.y-yc, dist=Math.hypot(dx,dy);
     if(k.kind==='ember'&&magnet&&dist<210){ k.wx-=dx*Math.min(1,dt*9); k.y-=dy*Math.min(1,dt*9); dx=k.wx-p.wx;dy=k.y-yc;dist=Math.hypot(dx,dy); }
-    const cr=k.kind==='boon'?30:(k.kind==='ember'?(ods?46:26):32);
+    const cr=k.kind==='boon'?30:k.kind==='chest'?34:(k.kind==='ember'?(ods?46:26):32);
     if(dist<cr){ k.got=true;
       if(k.kind==='ember'){ embersRun+=(1+boons.gold+(rec.char==='gilde'?1:0)); mprog('embers',1); sfx('ember');
         for(let i=0;i<6;i++)particles.push({x:ANCHOR+dx,y:p.y+dy,vx:rnd(-70,70),vy:rnd(-90,-10),life:.4,max:.4,r:rnd(1,2),c:'#ffd9a0',g:120}); }
+      else if(k.kind==='chest'){ openChest(); }
       else if(k.kind==='boon'){ applyBoon(k.boon);   // you steered into THIS one — grab it, decline the rest of the group
         for(let i=0;i<22;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-200,200),vy:rnd(-220,30),life:.6,max:.6,r:rnd(2,3.5),c:'#ffd9a0',g:120});
         for(const o of pickups){ if(o!==k&&o.kind==='boon'&&o.grp===k.grp&&!o.got){ o.got=true;   // boons you passed on — fizzle away
@@ -819,6 +828,13 @@ function activatePower(kind){ sfx('power');
   if(kind==='magnet') magnetT=T.magnetDur*(1+boons.overcharge*0.6)+magnetExtra;
   else if(kind==='shield') shield++;
   else if(kind==='overdrive') overdriveT=T.odDur*(1+boons.overcharge*0.6); }
+function openChest(){ sfx('best'); flash=Math.max(flash,0.6); shake=Math.max(shake,10);   // high-risk reward roll
+  const rng=dailyMode?TRE:Math.random; const r=rng(); let msg;
+  if(r<0.45){ const j=25+Math.floor(rng()*45)+depth*4; embersRun+=j; msg='✦ '+j+' EMBERS'; }
+  else if(r<0.8){ const id=BOONS[Math.floor(rng()*BOONS.length)].id; applyBoon(id); msg=((BOONS.find(b=>b.id===id)||{}).n||'BOON').toUpperCase(); }
+  else { const pk=rng()<0.5?'shield':'overdrive'; activatePower(pk); msg=pk==='shield'?'+1 SHIELD':'OVERDRIVE!'; }
+  areaCard={name:'✦ MYSTERY CHEST ✦',t:0,dur:1.6}; pushFloat(msg,'#ffe9b0',22);
+  for(let i=0;i<32;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-250,250),vy:rnd(-300,-20),life:.95,max:.95,r:rnd(2,4),c:i%2?'#ffd9a0':'#fff3c0',g:170}); }
 function powColor(k){ return k==='magnet'?'#bda0ff':k==='shield'?'#9dffd0':'#ffb030'; }
 function startEvent(){ const opts=['invert','frenzy','surge']; eventKind=opts[Math.floor(TRE()*opts.length)]; eventT=EVENT_DUR[eventKind];
   if(eventKind==='invert'){ flipTarget=-1; areaCard={name:'INVERSION',t:0,dur:2.2}; sfx('invert'); flash=Math.max(flash,0.5); shake=Math.max(shake,9);
@@ -897,6 +913,8 @@ function update(dt){
     const s=segAt(p.wx);
     if(s && p.invuln<=0){ if(s.kind==='spike'&&p.onGround&&Math.abs(p.wx-s.spikeX)<(s.spikeW/2+8)) hit();
       else if(s.kind==='wall'&&aspect===s.wallAspect&&Math.abs(p.wx-s.wallX)<(s.wallW/2+8)) hit();
+      else if(s.kind==='bolt'&&p.onGround&&Math.abs(p.wx-s.boltX)<(s.boltW/2+8)) hit();                    // lightning: safe only in the air
+      else if(s.kind==='geyser'&&!p.onGround&&p.y<GY-18&&Math.abs(p.wx-s.geyserX)<(s.geyserW/2+10)) hit();  // sand spout: safe only on the ground
       else if(s.ceilY!=null&&(p.y-30)<s.ceilY&&p.wx>s.x0+4&&p.wx<s.x1-4) hit(); }
   }
 
@@ -948,6 +966,16 @@ function drawGround(P,IN){
         ctx.fillStyle='#ff7a2a'; for(let yy=6;yy<GY;yy+=22){ ctx.beginPath(); ctx.moveTo(cx-9,yy); ctx.lineTo(cx-19,yy+8); ctx.lineTo(cx-9,yy+16); ctx.closePath(); ctx.fill();
           ctx.beginPath(); ctx.moveTo(cx+9,yy); ctx.lineTo(cx+19,yy+8); ctx.lineTo(cx+9,yy+16); ctx.closePath(); ctx.fill(); } }
       else { ctx.fillStyle='rgba(255,130,90,0.14)'; ctx.fillRect(cx-8,0,16,GY); ctx.strokeStyle='rgba(255,140,90,0.32)'; ctx.setLineDash([5,8]); ctx.strokeRect(cx-8,2,16,GY-3); ctx.setLineDash([]); } }
+    if(s.kind==='bolt'){ const cx=s.boltX-runDist; const fl=0.5+0.5*Math.abs(Math.sin(runDist*0.07+cx*0.02));   // Tempest lightning — JUMP it
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const gg=ctx.createRadialGradient(cx,GY-6,2,cx,GY-6,s.boltW*0.95); gg.addColorStop(0,'rgba(180,200,255,'+(0.5*fl)+')'); gg.addColorStop(1,'rgba(120,140,255,0)'); ctx.fillStyle=gg; ctx.fillRect(cx-s.boltW,GY-44,s.boltW*2,50);
+      ctx.strokeStyle='rgba(205,222,255,'+(0.5+0.45*fl)+')'; ctx.lineWidth=2.6; ctx.beginPath(); ctx.moveTo(cx,0); let yy2=0; for(let z=0;z<5;z++){ const ny=yy2+GY/5, nx=cx+(z%2?16:-14)*fl; ctx.lineTo(nx,ny); yy2=ny; } ctx.lineTo(cx,GY); ctx.stroke(); ctx.restore();
+      ctx.fillStyle='rgba(190,210,255,'+(0.35+0.35*fl)+')'; ctx.font='bold 14px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('⚡',cx,GY-48); }
+    if(s.kind==='geyser'){ const cx=s.geyserX-runDist; const er=0.62+0.38*Math.abs(Math.sin(runDist*0.05+cx*0.08));   // Dunesea sand spout — DON'T jump
+      ctx.save(); const cg=ctx.createLinearGradient(cx,GY,cx,GY-150*er); cg.addColorStop(0,'rgba(214,168,92,0.85)'); cg.addColorStop(1,'rgba(255,210,140,0)'); ctx.fillStyle=cg;
+      ctx.beginPath(); ctx.moveTo(cx-s.geyserW/2,GY); ctx.quadraticCurveTo(cx-6,GY-130*er,cx-3,GY-150*er); ctx.lineTo(cx+3,GY-150*er); ctx.quadraticCurveTo(cx+6,GY-130*er,cx+s.geyserW/2,GY); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(255,228,170,0.85)'; for(let z=0;z<6;z++){ const ph=(runDist*0.012+z*0.4)%1; ctx.globalAlpha=1-ph; ctx.beginPath(); ctx.arc(cx+Math.sin(z*1.7)*9, GY-ph*150*er, 2.2,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1; ctx.restore();
+      ctx.fillStyle='rgba(255,210,140,0.9)'; ctx.font='bold 13px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('▲',cx,GY+17); }
   } }
 function drawPickups(){ for(const k of pickups){ const x=k.wx-runDist; if(x<-30||x>VW+30)continue; const y=k.y+Math.sin(k.bob*3)*3;
     if(k.kind==='ember'){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='#ffcf6a'; ctx.beginPath(); ctx.arc(x,y,3.4,0,Math.PI*2); ctx.fill();
@@ -956,6 +984,14 @@ function drawPickups(){ for(const k of pickups){ const x=k.wx-runDist; if(x<-30|
       ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,210,140,'+(0.3+0.12*Math.sin(k.bob*4+runDist*0.02))+')'; ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.fill(); ctx.restore();
       ctx.fillStyle='rgba(18,12,26,0.85)'; ctx.strokeStyle='#ffd9a0'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(x,y,16,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.font='17px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#ffd9a0'; ctx.fillText(bb?bb.ico:'?',x,y+1); ctx.textBaseline='alphabetic'; }
+    else if(k.kind==='chest'){ const pulse=0.3+0.16*Math.sin(k.bob*4+runDist*0.02);
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,205,110,'+pulse+')'; ctx.beginPath(); ctx.arc(x,y,27,0,Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.fillStyle='#7a4a1e'; rrect(x-14,y-7,28,16,3); ctx.fill();                       // body
+      ctx.fillStyle='#caa05a'; rrect(x-14,y-12,28,7,3); ctx.fill();                        // lid
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(x-14,y-1,28,2);
+      ctx.fillStyle='#ffe6a0'; ctx.fillRect(x-2,y-6,4,7);                                   // lock
+      ctx.strokeStyle='rgba(255,232,150,0.8)'; ctx.lineWidth=1.5; ctx.strokeRect(x-14,y-12,28,21);
+      ctx.fillStyle='rgba(255,235,170,0.9)'; ctx.font='10px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('?',x,y-14); }
     else { const c=powColor(k.kind); ctx.fillStyle='rgba(10,8,16,.7)'; ctx.strokeStyle=c; ctx.lineWidth=2;
       ctx.beginPath(); ctx.arc(x,y,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle=c; ctx.font='bold 14px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
