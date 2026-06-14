@@ -24,16 +24,28 @@
   #rotate{position:fixed;inset:0;z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;
     background:#05040a;color:#9ad;letter-spacing:2px;font-size:15px;text-align:center;padding:30px;}
   @media (orientation:portrait) and (pointer:coarse){ #rotate.armed{display:flex;} }
-  /* shop button + overlay */
-  #openShop{position:fixed;z-index:12;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));
-    display:none;background:rgba(20,16,32,.7);border:1.5px solid rgba(255,200,120,.55);color:#ffd9a0;
-    padding:9px 16px;border-radius:22px;font-weight:bold;letter-spacing:1px;font-size:14px;cursor:pointer;}
+  /* unified home/results toolbar */
+  #menuBar{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));
+    display:none;gap:8px;}
+  #menuBar .mb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:60px;
+    background:rgba(18,15,28,.82);border:1.5px solid rgba(160,200,255,.26);color:#cfc7d6;
+    padding:8px 12px;border-radius:16px;font-size:10.5px;letter-spacing:1px;font-weight:bold;cursor:pointer;
+    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);transition:border-color .12s,color .12s,transform .1s;}
+  #menuBar .mb .ic{font-size:19px;line-height:1;}
+  #menuBar .mb:hover,#menuBar .mb:active{border-color:#ffd9a0;color:#ffd9a0;transform:translateY(-2px);}
+  #menuBar .mb.accent{border-color:rgba(255,210,140,.55);color:#ffd9a0;background:rgba(34,22,14,.85);}
+  /* overlay close (✕) — pinned top-right of any open panel */
+  .ovx{position:fixed;z-index:26;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));
+    width:42px;height:42px;border-radius:50%;background:rgba(20,16,32,.8);border:1.5px solid rgba(255,255,255,.3);
+    color:#f4ead8;font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+  .ovx:hover,.ovx:active{border-color:#ffd9a0;color:#ffd9a0;}
   #shop{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;
     background:rgba(5,4,10,.92);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);overflow:auto;padding:22px 12px;}
   #shop h2{letter-spacing:5px;font-size:24px;margin:6px 0 2px;color:#f4ead8;}
   #shop .wallet{color:#ffd9a0;letter-spacing:1px;margin-bottom:14px;font-size:14px;}
-  #shop .tabs{display:flex;gap:10px;margin-bottom:14px;}
-  #shop .tab{padding:8px 18px;border:1px solid #2a2438;border-radius:20px;cursor:pointer;font-size:13px;letter-spacing:1px;color:#b9b1c8;}
+  #shop .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;max-width:94vw;}
+  #shop .tab{padding:7px 15px;border:1px solid #2a2438;border-radius:20px;cursor:pointer;font-size:12px;letter-spacing:1px;color:#b9b1c8;}
   #shop .tab.on{border-color:#ffd9a0;color:#ffd9a0;background:#1a1426;}
   #shop .rows{display:flex;flex-direction:column;gap:9px;width:520px;max-width:94vw;}
   .srow{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #2a2438;border-radius:12px;background:#120f1c;}
@@ -47,15 +59,6 @@
   #btnL{position:fixed;z-index:12;left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));
     display:none;background:rgba(20,16,32,.7);border:1.5px solid rgba(160,200,255,.5);color:#bdf5e8;
     padding:9px 14px;border-radius:22px;font-weight:bold;letter-spacing:1px;font-size:15px;cursor:pointer;}
-  #btnDaily{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));
-    display:none;background:rgba(30,20,40,.8);border:1.5px solid rgba(255,210,140,.55);color:#ffd9a0;
-    padding:11px 20px;border-radius:24px;font-weight:bold;letter-spacing:1px;font-size:14px;cursor:pointer;}
-  #btnMap{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(max(16px,env(safe-area-inset-bottom)) + 52px);
-    display:none;background:rgba(40,18,30,.85);border:1.5px solid rgba(255,150,90,.6);color:#ffb88a;
-    padding:11px 20px;border-radius:24px;font-weight:bold;letter-spacing:1px;font-size:14px;cursor:pointer;}
-  #btnLb{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(max(16px,env(safe-area-inset-bottom)) + 104px);
-    display:none;background:rgba(24,30,44,.85);border:1.5px solid rgba(160,200,255,.55);color:#bdf5e8;
-    padding:11px 20px;border-radius:24px;font-weight:bold;letter-spacing:1px;font-size:14px;cursor:pointer;}
   .lbrow{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #1c1828;font-size:14px;}
   .lbrow .rk{width:34px;color:#9a93a8;font-weight:bold;text-align:right;}
   .lbrow .nm{flex:1;color:#f4ead8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -99,12 +102,16 @@
 <div id="wrap"><canvas id="c" width="960" height="540"></canvas></div>
 <div id="zones"><div class="z zl">◀ TAP = FLIP</div><div class="z zr">TAP = JUMP ▶</div></div>
 <div id="rotate">↻<br>Rotate to landscape<br>for EMBER RUN.</div>
-<button id="openShop">✦ SHOP</button>
-<button id="btnL">≡ HISTORY</button>
-<button id="btnDaily">🗓 DAILY CHALLENGE</button>
-<button id="btnMap">🔥 REKINDLING MAP</button>
-<button id="btnLb">🏆 LEADERBOARD</button>
+<button id="btnL">⏸</button>
+<div id="menuBar">
+  <button class="mb accent" id="btnDaily"><span class="ic">🗓</span>Daily</button>
+  <button class="mb" id="btnMap"><span class="ic">🔥</span>Map</button>
+  <button class="mb" id="btnLb"><span class="ic">🏆</span>Ranks</button>
+  <button class="mb" id="openShop"><span class="ic">✦</span>Shop</button>
+  <button class="mb" id="btnHist"><span class="ic">≡</span>History</button>
+</div>
 <div id="shop">
+  <button class="ovx" id="shopX">✕</button>
   <h2>EMBER SHOP</h2>
   <div class="wallet" id="shopWallet"></div>
   <div class="tabs"><div class="tab on" data-tab="chars">CHARACTERS</div><div class="tab" data-tab="upg">UPGRADES</div><div class="tab" data-tab="skins">SKINS</div><div class="tab" data-tab="eternal">ETERNAL</div></div>
@@ -121,12 +128,14 @@
   </div>
 </div>
 <div id="history" class="ov">
+  <button class="ovx" id="histX">✕</button>
   <h2>HISTORY</h2>
   <div class="sub" id="histSub"></div>
   <div id="histBody"></div>
   <button class="close" id="closeHist">CLOSE</button>
 </div>
 <div id="leaderboard" class="ov">
+  <button class="ovx" id="lbX">✕</button>
   <h2>LEADERBOARD</h2>
   <div class="sub" id="lbSub"></div>
   <div class="tabs" id="lbTabs"><div class="tab on" data-board="daily">DAILY</div><div class="tab" data-board="alltime">ALL-TIME</div></div>
@@ -1049,10 +1058,9 @@ function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); c
   ctx.fillStyle='#ffcf6a'; ctx.font='15px Trebuchet MS'; ctx.fillText('✦ +'+embersRun+' embers   (total '+rec.embers+')',VW/2,166);
   ctx.fillStyle='#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText('⏱ '+runTime.toFixed(1)+'s    ↺ '+streak+'    '+nearMiss+' clutch    Best '+rec.bestDist+' m',VW/2,190);
   drawMissions(VW/2,222);
-  if(newUnlock){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 16px Trebuchet MS'; ctx.shadowColor='#ff5a3a'; ctx.shadowBlur=10; ctx.fillText('✦ NEW CHARACTER: '+newUnlock+' — find it in the shop',VW/2,VH-94); ctx.shadowBlur=0; }
-  if(newAch.length){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('🏆 UNLOCKED: '+newAch.slice(0,3).join(' · '),VW/2,VH-74); }
-  ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-40);
-  ctx.fillStyle='rgba(189,245,232,.6)'; ctx.font='12px Trebuchet MS'; ctx.fillText('≡ HISTORY  ·  ✦ SHOP  (top corners)',VW/2,VH-18); }
+  if(newUnlock){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 16px Trebuchet MS'; ctx.shadowColor='#ff5a3a'; ctx.shadowBlur=10; ctx.fillText('✦ NEW CHARACTER: '+newUnlock+' — find it in the shop',VW/2,VH-150); ctx.shadowBlur=0; }
+  if(newAch.length){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('🏆 UNLOCKED: '+newAch.slice(0,3).join(' · '),VW/2,VH-128); }
+  ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 22px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-100); }
 function drawAreaCard(){ if(!areaCard)return; const a=Math.min(1, areaCard.t<0.4?areaCard.t/0.4:(areaCard.dur-areaCard.t)/0.5);
   ctx.globalAlpha=Math.max(0,a); ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 30px Trebuchet MS';
   ctx.shadowColor='#000'; ctx.shadowBlur=12; ctx.fillText(areaCard.name,VW/2,VH/2-40); ctx.shadowBlur=0; ctx.globalAlpha=1; }
@@ -1093,14 +1101,12 @@ function draw(){ if(state==='map'){ drawMap(); return; }
 /* ---- shop UI (DOM) ---- */
 let shopOpen=false, shopTab='chars';
 function syncButtons(){ const anyOv=shopOpen||historyOpen||paused||drafting||lbOpenFlag;
-  document.getElementById('openShop').style.display=(state!=='run'&&state!=='map'&&!anyOv)?'block':'none';
-  document.getElementById('btnDaily').style.display=(state==='title'&&!anyOv)?'block':'none';
-  document.getElementById('btnMap').style.display=(state==='title'&&!anyOv)?'block':'none';
-  document.getElementById('btnLb').style.display=(state==='title'&&!anyOv)?'block':'none';
+  const onMenu=(state==='title'||state==='dead')&&!anyOv;
+  document.getElementById('menuBar').style.display=onMenu?'flex':'none';   // unified toolbar on home + results
   const bl=document.getElementById('btnL');
-  if(state==='run'){ bl.style.display=(!anyOv)?'block':'none'; bl.textContent='⏸'; }
-  else if(state==='map'){ bl.style.display=(!anyOv)?'block':'none'; bl.textContent='← BACK'; }
-  else { bl.style.display=(!anyOv)?'block':'none'; bl.textContent='≡ HISTORY'; } }
+  if(!anyOv&&state==='run'){ bl.style.display='block'; bl.textContent='⏸'; }
+  else if(!anyOv&&state==='map'){ bl.style.display='block'; bl.textContent='← BACK'; }
+  else { bl.style.display='none'; } }
 function openShop(){ shopOpen=true; document.getElementById('shop').style.display='flex'; renderShop(); syncButtons(); }
 function closeShop(){ shopOpen=false; document.getElementById('shop').style.display='none'; syncButtons(); }
 /* ---- pause / main menu / history ---- */
@@ -1161,7 +1167,11 @@ async function renderLeaderboard(){ const body=document.getElementById('lbBody')
     h+='<div class="lbrow'+(isMe?' me':'')+(top?' top':'')+'"><div class="rk">'+(i+1)+'</div><div class="nm">'+escHtml(row.name)+'</div><div class="sc">'+row.score+' m</div></div>'; }
   body.innerHTML=h; }
 document.getElementById('btnLb').onclick=openLeaderboard;
+document.getElementById('btnHist').onclick=openHistory;
 document.getElementById('closeLb').onclick=closeLeaderboard;
+document.getElementById('shopX').onclick=closeShop;
+document.getElementById('histX').onclick=closeHistory;
+document.getElementById('lbX').onclick=closeLeaderboard;
 document.querySelectorAll('#lbTabs .tab').forEach(function(t){ t.onclick=function(){ lbBoard=t.dataset.board;
   document.querySelectorAll('#lbTabs .tab').forEach(function(x){ x.classList.toggle('on',x===t); }); renderLeaderboard(); }; });
 document.getElementById('lbSave').onclick=function(){ const v=(document.getElementById('lbHandle').value||'').trim().slice(0,16); rec.handle=v; saveRec();
