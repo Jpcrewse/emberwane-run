@@ -1182,7 +1182,8 @@ function drawTitle(){ ctx.textAlign='center';
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('LEFT = FLIP   ·   RIGHT = JUMP (hold = higher)',VW/2,214);
   ctx.fillStyle='#ffcf6a'; ctx.font='14px Trebuchet MS'; ctx.fillText('✦ '+rec.embers+' embers'+(rec.bestDist?'    ·    Best '+rec.bestDist+' m':''),VW/2,242);
   if(rec.asc>0){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('✦ ASCENSION '+rec.asc+'   ·   ❤ '+(rec.hearts||0)+' emberhearts   ·   +'+Math.round(ascBonus()*100)+'% embers',VW/2,263); }
-  drawMissions(VW/2, rec.asc>0?292:278); }
+  drawMissions(VW/2, rec.asc>0?292:278);
+  ctx.fillStyle='#5a5566'; ctx.font='10px Trebuchet MS'; ctx.textAlign='right'; ctx.fillText('build '+APP_VER, VW-8, VH-8); ctx.textAlign='center'; }
 function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); ctx.textAlign='center';
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('DISTANCE',VW/2,70);
   ctx.fillStyle='#bdf5e8'; ctx.font='bold 54px Trebuchet MS'; ctx.fillText(Math.floor(meters)+' m',VW/2,116);
