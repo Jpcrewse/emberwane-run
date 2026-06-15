@@ -233,6 +233,7 @@ function sfx(n){ switch(n){
   case 'invert':blip(600,0.5,'sawtooth',0.22,140); blip(900,0.4,'sine',0.16,300); noise(0.4,0.16,700); break;
   case 'die':  blip(300,0.4,'sawtooth',0.25,70); noise(0.4,0.2,400); break;
   case 'best': blip(660,0.16,'sine',0.2,990); blip(990,0.22,'sine',0.16,1320); break;
+  case 'catch':blip(330,0.16,'sine',0.22,540); blip(540,0.22,'sine',0.16,700); noise(0.05,0.05,300); break;   // warm, grounding "held" tone
 } }
 function setDrone(){ if(AC&&drone){ const base=curMusic().root/2; drone.frequency.exponentialRampToValueAtTime(aspect==='bloom'?base:base*1.5,AC.currentTime+0.3); } }
 
@@ -497,6 +498,8 @@ let state='title', aspect='bloom';
 let runDist=0, runTime=0, runSpeed=T.baseSpeed, trueM=0, biomeIdx=0;
 let meters=0, mult=1, comboGain=0.18, combo=0, flowT=0, streak=0, nearMiss=0, best=false; const FLOW_MAX=3; let flowMax=FLOW_MAX;
 let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, levelFlash=0, floats=[], hitstop=0, slowT=0, flipPunch=0, flowSurge=0;
+const CATCH_ON=true;                                // ── THE CATCH experiment — set false to fully disable ──
+let catchCount=0, flipAirN=0, flipAirClrSum=0;      // per-run: catches + airborne-flip commit-clearance (the "trust signature")
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
@@ -783,7 +786,7 @@ function startRun(){
   if(dailyMode){ const sd=dateSeed(); TRT=mulberry32(sd); TRE=mulberry32((sd^0x9e3779b9)>>>0); } else { TRT=Math.random; TRE=Math.random; }
   state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
   streak=0; nearMiss=0; best=false; flash=0; shake=0; flipPunch=0; flowSurge=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0; odLockM=0;
-  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; newUnlock=''; paused=false;
+  combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; newUnlock=''; paused=false; catchCount=0; flipAirN=0; flipAirClrSum=0;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0; depth=0; deathCause='';
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
   applyUpgrades(); applyCharacter();
@@ -819,7 +822,8 @@ function die(){ if(state!=='run')return;
   rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun); rec.bestDepth=Math.max(rec.bestDepth||0,depth); rec.bestEmbersRun=Math.max(rec.bestEmbersRun||0,embersRun);
   checkAchievements(); checkUnlocks();
   saveRec(); syncButtons(); lbSubmitRun(dm);
-  track('run_end',{distance:dm,depth:depth,embers:embersRun,dur:Math.round(runTime),perfects:perfectsRun,combo:streak,level:biomeIdx+1,mode:dailyMode?'daily':'free',char:rec.char,cause:deathCause||'unknown',first:ER_FIRST}); }
+  track('run_end',{distance:dm,depth:depth,embers:embersRun,dur:Math.round(runTime),perfects:perfectsRun,combo:streak,level:biomeIdx+1,mode:dailyMode?'daily':'free',char:rec.char,cause:deathCause||'unknown',first:ER_FIRST,
+    catches:catchCount, airFlips:flipAirN, avgFlipClr:flipAirN?Math.round(flipAirClrSum/flipAirN):-1}); }   // THE CATCH analytics: catches + trust signature (avg airborne-flip commit height)
 
 /* ---- input ---- */
 function flip(){ if(state!=='run')return;
@@ -827,6 +831,11 @@ function flip(){ if(state!=='run')return;
   flash=Math.max(flash,0.34); flipPunch=1; shake=Math.max(shake,3); setDrone(); sfx('flip'); mprog('flips',1); rec.flipsTotal++;   // the flip is now an EVENT: zoom-snap + punch
   const Pg=biome()[aspect];
   for(let i=0;i<16;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-110,110),vy:rnd(-130,50),life:.4,max:.4,r:rnd(1,3),c:Pg.glow,g:120});
+  if(CATCH_ON){ const clr=GY-p.y;                                                   // ── THE CATCH ──
+    if(!p.onGround&&p.vy>0){ flipAirN++; flipAirClrSum+=Math.max(0,clr);            // trust signature: how LATE the player commits airborne flips
+      if(!before&&after){ catchCount++; hitstop=0.06; sfx('catch'); flash=Math.max(flash,0.32);   // the world rises to HOLD a falling player
+        for(let i=0;i<12;i++)particles.push({x:ANCHOR,y:GY,vx:rnd(-90,90),vy:rnd(-160,-30),life:.55,max:.55,r:rnd(1.5,3),c:Pg.glow,g:150});   // ground rises up to meet you
+        track('catch',{clr:Math.round(clr),m:Math.floor(meters),t:+runTime.toFixed(1),n:catchCount,depth:depth}); } } }
   if(!before&&after){ nearMiss++; mprog('clutch',1);
     const perfect=(p.y-GY)<8; addCombo(perfect);
     if(perfect){ flowSurge=Math.max(flowSurge,0.6); flash=Math.max(flash,0.55); shake=Math.max(shake,8); pushFloat('PERFECT FLIP  ⚡','#bdf5e8',22);   // reward: a speed SURGE you crave (the seed of "Heat")
@@ -1285,7 +1294,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15d';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15e';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
@@ -1409,6 +1418,7 @@ document.querySelectorAll('#shop .tab').forEach(t=>t.onclick=()=>{ shopTab=t.dat
 /* ---- loop / fit ---- */
 let last=0,acc=0; const STEP=1/120;
 function frame(t){ const now=t/1000; let dt=now-last; last=now; if(dt>0.1)dt=0.1;
+  if(hitstop>0){ hitstop-=dt; draw(); requestAnimationFrame(frame); return; }   // THE CATCH: the world pauses for a breath to hold you
   if(!paused){ acc+=dt; let n=0; while(acc>=STEP&&n<8){ update(STEP); acc-=STEP; n++; } }   // game only pauses on manual pause
   draw(); requestAnimationFrame(frame); }
 checkUnlocks();   // retroactively grant secret characters earned before this update (safe: runs after all defs)
