@@ -501,7 +501,7 @@ let meters=0, mult=1, comboGain=0.18, combo=0, flowT=0, streak=0, nearMiss=0, be
 let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, levelFlash=0, floats=[], hitstop=0, slowT=0, flipPunch=0, flowSurge=0;
 const CATCH_ON=true;                                // ── THE CATCH experiment — set false to fully disable ──
 let catchCount=0, flipAirN=0, flipAirClrSum=0;      // per-run: catches + airborne-flip commit-clearance (the "trust signature")
-let catchFxT=0, catchFxPerfect=false;               // Communion catch FX: timer + whether this catch was a clutch (full fuse)
+let catchFxT=0, catchFxPerfect=false; let deadRank=null, deadRankBoard='', deadPaceLead=0;               // Communion catch FX: timer + whether this catch was a clutch (full fuse)
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
@@ -542,7 +542,8 @@ function genMissions(){ rec.missions=shuffle(MTYPES).slice(0,3).map(m=>({k:m.k,s
 if(!rec.missions||!rec.missions.length) genMissions();
 function mprog(k,n){ for(const m of rec.missions){ if(m.k===k&&!m.done){ m.prog+=n; if(m.prog>=m.target){m.done=true;missionFlash=1.4;sfx('mission');} } } checkLevel(); }
 function mset(k,v){ for(const m of rec.missions){ if(m.k===k&&!m.done){ if(v>m.prog)m.prog=v; if(m.prog>=m.target){m.done=true;missionFlash=1.4;sfx('mission');} } } checkLevel(); }
-function checkLevel(){ if(rec.missions.length&&rec.missions.every(m=>m.done)){ rec.level++; const rw=40*rec.level; rec.embers+=rw; levelFlash=2.4; sfx('level'); genMissions(); saveRec(); } }
+function checkLevel(){ if(rec.missions.length&&rec.missions.every(m=>m.done)){ rec.level++; const rw=40*rec.level; rec.embers+=rw; levelFlash=2.4; sfx('level'); genMissions(); saveRec();
+  if(state==='run'){ areaCard={name:'✦ LEVEL '+rec.level+'   ·   +'+rw+' embers ✦',t:0,dur:2.4}; flash=Math.max(flash,0.45); shake=Math.max(shake,6); pushFloat('LEVEL UP — NEW MISSIONS','#ffd9a0',22); } } }   // visible (non-blocking) level-up ceremony
 
 /* ---- achievements ---- */
 const ACH=[
@@ -824,6 +825,9 @@ function die(){ if(state!=='run')return;
   rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun); rec.bestDepth=Math.max(rec.bestDepth||0,depth); rec.bestEmbersRun=Math.max(rec.bestEmbersRun||0,embersRun);
   checkAchievements(); checkUnlocks();
   saveRec(); syncButtons(); lbSubmitRun(dm);
+  deadRank=null; deadRankBoard=''; deadPaceLead=0;                                                  // pace-lead: how far this run led your best
+  if(!best && rec.pace && rec.pace.length>4){ let lead=0; const n=Math.min(paceRec.length,rec.pace.length); for(let i=0;i<n;i++){ if(paceRec[i].d>=rec.pace[i].d) lead=paceRec[i].d; else break; } deadPaceLead=lead; }
+  if(lbOn()&&dm>0){ const rb=dailyMode?lbDailyBoard():'alltime', rbl=dailyMode?'today':'all-time'; lbRank(rb,dm).then(function(rk){ if(rk){ deadRank=rk; deadRankBoard=rbl; } }); }   // rank-on-death
   track('run_end',{distance:dm,depth:depth,embers:embersRun,dur:Math.round(runTime),perfects:perfectsRun,combo:streak,level:biomeIdx+1,mode:dailyMode?'daily':'free',char:rec.char,cause:deathCause||'unknown',first:ER_FIRST,
     catches:catchCount, airFlips:flipAirN, avgFlipClr:flipAirN?Math.round(flipAirClrSum/flipAirN):-1}); }   // THE CATCH analytics: catches + trust signature (avg airborne-flip commit height)
 
@@ -838,6 +842,7 @@ function flip(){ if(state!=='run')return;
       if(!before&&after){ catchCount++; hitstop=0.06; sfx('catch'); flash=Math.max(flash,0.32);   // the world rises to HOLD a falling player
         catchFxT=0.55; catchFxPerfect=(clr<8);                                                    // COMMUNION: gold+cyan bloom rises to the foot; clutch = full fuse
         for(let i=0;i<12;i++)particles.push({x:ANCHOR,y:GY,vx:rnd(-90,90),vy:rnd(-160,-30),life:.55,max:.55,r:rnd(1.5,3),c:i%2?'#79e6d6':'#ffce6a',g:150});   // gold/cyan motes rising
+        if(!rec.firstCatchSeen){ rec.firstCatchSeen=true; saveRec(); pushFloat('✦ THE WORLD HELD YOU ✦','#bdf5e8',26); flash=Math.max(flash,0.55); areaCard={name:'THE CATCH — flip late, and reality catches you',t:0,dur:2.6}; }   // teach the emotional core, once ever
         track('catch',{clr:Math.round(clr),m:Math.floor(meters),t:+runTime.toFixed(1),n:catchCount,depth:depth}); } } }
   if(!before&&after){ nearMiss++; mprog('clutch',1);
     const perfect=(p.y-GY)<8; addCombo(perfect);
@@ -1232,13 +1237,26 @@ function flameMark(cx,base,h){ const fl=Math.sin(performance.now()*0.006)*(h*0.0
   ctx.fillStyle='#ffe2a0'; ctx.beginPath(); ctx.moveTo(cx,base-h*0.55); ctx.quadraticCurveTo(cx+w*0.46,base-h*0.18,cx,base+h*0.09); ctx.quadraticCurveTo(cx-w*0.46,base-h*0.18,cx,base-h*0.55); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#fff7e0'; ctx.beginPath(); ctx.moveTo(cx,base-h*0.32); ctx.quadraticCurveTo(cx+w*0.22,base-h*0.1,cx,base+h*0.06); ctx.quadraticCurveTo(cx-w*0.22,base-h*0.1,cx,base-h*0.32); ctx.closePath(); ctx.fill();
   ctx.restore(); }
-function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); ctx.textAlign='center'; flameMark(VW/2,46,26);
-  ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('DISTANCE',VW/2,70);
-  ctx.fillStyle='#bdf5e8'; ctx.font='bold 54px Trebuchet MS'; ctx.fillText(Math.floor(meters)+' m',VW/2,116);
-  if(best){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 17px Trebuchet MS'; ctx.fillText('★ NEW BEST ★',VW/2,140); }
-  ctx.fillStyle='#ffcf6a'; ctx.font='15px Trebuchet MS'; ctx.fillText('✦ +'+embersRun+' embers   (total '+rec.embers+')',VW/2,166);
-  ctx.fillStyle='#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText('⏱ '+runTime.toFixed(1)+'s    ↺ '+streak+'    '+nearMiss+' clutch    Best '+rec.bestDist+' m',VW/2,190);
-  drawMissions(VW/2,222);
+function deathTip(c){ switch(c){
+  case 'fall':   return '✗ Fell into a gap — flip to a solid world, or jump';
+  case 'spike':  return '✗ Hit spikes — jump over them';
+  case 'wall':   return '✗ Ran into a wall — flip to the other world to pass';
+  case 'bolt':   return '✗ Struck by lightning — jump it (safe in the air)';
+  case 'geyser': return '✗ Hit a sand spout — stay grounded, don’t jump';
+  case 'ceiling':return '✗ Clipped the ceiling — stay low';
+  default: return ''; } }
+function drawDead(){ ctx.fillStyle='rgba(5,4,10,.6)'; ctx.fillRect(0,0,VW,VH); ctx.textAlign='center'; flameMark(VW/2,44,24);
+  let y=64;
+  ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('DISTANCE',VW/2,y); y+=42;
+  ctx.fillStyle='#bdf5e8'; ctx.font='bold 50px Trebuchet MS'; ctx.fillText(Math.floor(meters)+' m',VW/2,y); y+=22;
+  if(best){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 16px Trebuchet MS'; ctx.fillText('★ NEW BEST ★',VW/2,y); y+=20; }
+  { const dc=deathTip(deathCause); if(dc){ ctx.fillStyle='#e6b8a4'; ctx.font='12px Trebuchet MS'; ctx.fillText(dc,VW/2,y); y+=19; } }
+  ctx.fillStyle='#ffcf6a'; ctx.font='14px Trebuchet MS'; ctx.fillText('✦ +'+embersRun+' embers   (total '+rec.embers+')',VW/2,y); y+=19;
+  ctx.fillStyle='#cfc7d6'; ctx.font='12px Trebuchet MS'; ctx.fillText('⏱ '+runTime.toFixed(1)+'s    ↺ '+streak+'    '+nearMiss+' clutch    Best '+rec.bestDist+'m',VW/2,y); y+=18;
+  { let extra=''; if(!best&&deadPaceLead>20) extra='You led your best until '+deadPaceLead+'m';
+    if(deadRank) extra+=(extra?'    ·    ':'')+'#'+deadRank+' '+deadRankBoard;
+    if(extra){ ctx.fillStyle='#9dffd0'; ctx.font='12px Trebuchet MS'; ctx.fillText(extra,VW/2,y); y+=18; } }
+  drawMissions(VW/2,y+2);
   if(newUnlock){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 16px Trebuchet MS'; ctx.shadowColor='#ff5a3a'; ctx.shadowBlur=10; ctx.fillText('✦ NEW CHARACTER: '+newUnlock+' — find it in the shop',VW/2,VH-150); ctx.shadowBlur=0; }
   if(newAch.length){ ctx.fillStyle='#ffd9a0'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('🏆 UNLOCKED: '+newAch.slice(0,3).join(' · '),VW/2,VH-128); }
   ctx.fillStyle=deathT>0.4?'#9dffd0':'#5a5a5a'; ctx.font='bold 22px Trebuchet MS'; ctx.fillText('TAP TO RUN AGAIN',VW/2,VH-100); }
@@ -1362,7 +1380,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15k';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15l';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
@@ -1390,6 +1408,9 @@ async function lbSubmit(board,score,depthV){ if(!lbOn()||!rec.handle)return fals
 async function lbFetch(board,limit){ if(!lbOn())return null;
   try{ const r=await fetch(LB.url+'/rest/v1/scores?board=eq.'+encodeURIComponent(board)+'&order=score.desc&limit='+(limit||50)+'&select=name,score,depth',{headers:lbHeaders()});
     if(!r.ok)return null; return await r.json(); }catch(e){ return null; } }
+async function lbRank(board,score){ if(!lbOn())return null;   // your live rank = (# scores greater than yours) + 1
+  try{ const r=await fetch(LB.url+'/rest/v1/scores?board=eq.'+encodeURIComponent(board)+'&score=gt.'+Math.floor(score)+'&select=name',{headers:Object.assign({'Prefer':'count=exact'},lbHeaders())});
+    if(!r.ok)return null; const cr=r.headers.get('content-range')||''; const tot=parseInt((cr.split('/')[1]||''),10); return isNaN(tot)?null:tot+1; }catch(e){ return null; } }
 function lbSubmitRun(dm){ if(!lbOn()||!rec.handle)return; lbSubmit('alltime',dm,depth); if(dailyMode)lbSubmit(lbDailyBoard(),dm,depth); lbSubmit('embers',embersRun,depth); }   // distance + most-embers-in-a-run
 function openLeaderboard(){ lbOpenFlag=true; document.getElementById('leaderboard').style.display='flex';
   const h=document.getElementById('lbHandle'); if(h)h.value=rec.handle||'';
