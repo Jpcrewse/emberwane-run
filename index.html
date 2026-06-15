@@ -1023,24 +1023,32 @@ function drawGround(P,IN){
     const activeSolid=aspect==='bloom'?s.bloom:s.cinder, otherSolid=aspect==='bloom'?s.cinder:s.bloom;
     if(activeSolid){ const g=ctx.createLinearGradient(0,GY-6,0,VH); g.addColorStop(0,P.gTop); g.addColorStop(0.4,P.gBod); g.addColorStop(1,P.gBod);
       ctx.fillStyle=g; ctx.fillRect(sx,GY,w,VH-GY);
-      ctx.fillStyle=P.gTop; ctx.fillRect(sx,GY-5,w,6);                       // crust
-      ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(sx,GY-5,w,2);     // highlight
-      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(sx,GY+1,w,3);          // under-crust shadow
-      const acc=BIOME_ACC[lvl().base]; ctx.fillStyle=acc;
-      for(let gx=Math.ceil(sx/24)*24; gx<ex; gx+=24){ const hh=2+((Math.floor(gx/24)*13)%4);
-        if(biomeIdx===0){ ctx.globalAlpha=0.65; ctx.fillRect(gx,GY-5-hh,2,hh); }                                  // ember specks
-        else { ctx.globalAlpha=0.55; ctx.beginPath(); ctx.moveTo(gx-3,GY-4); ctx.lineTo(gx,GY-7-hh); ctx.lineTo(gx+3,GY-4); ctx.closePath(); ctx.fill(); } }  // tufts
+      // ── ASPECT READABILITY: value + shape, achromatic so hue-rotate can't scramble it (colorblind-safe) ──
+      if(aspect==='bloom'){                                                   // BLOOM = LIGHT world, ORGANIC rounded crust
+        ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(sx,GY,w,VH-GY);  // lift the whole face in value
+        ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.fillRect(sx,GY-5,w,3);    // bright crust
+        ctx.fillStyle='rgba(255,255,255,0.7)';
+        for(let gx=Math.ceil(sx/22)*22; gx<ex; gx+=22){ ctx.beginPath(); ctx.arc(gx,GY-5,3,Math.PI,0); ctx.fill(); }   // rounded bumps = growing/alive
+      } else {                                                                // CINDER = DARK world, CRACKED angular crust
+        ctx.fillStyle='rgba(0,0,0,0.32)'; ctx.fillRect(sx,GY,w,VH-GY);        // sink the whole face in value
+        ctx.fillStyle='rgba(0,0,0,0.82)'; ctx.fillRect(sx,GY-5,w,5);          // charred crust
+        ctx.strokeStyle='rgba(255,255,255,0.6)'; ctx.lineWidth=1.4; ctx.beginPath();
+        for(let gx=Math.ceil(sx/22)*22; gx<ex; gx+=22){ ctx.moveTo(gx-5,GY-1); ctx.lineTo(gx,GY-8); ctx.lineTo(gx+5,GY-1); }   // jagged cracks = broken/burnt
+        ctx.stroke();
+      }
       ctx.globalAlpha=1; }
     else { // gap in the active aspect — dark abyss so pits read as danger over the busy background
       const ag=ctx.createLinearGradient(0,GY,0,VH); ag.addColorStop(0,'rgba(0,0,0,0)'); ag.addColorStop(0.35,'rgba(2,1,6,0.55)'); ag.addColorStop(1,'rgba(2,1,6,0.86)');
       ctx.fillStyle=ag; ctx.fillRect(sx,GY,w,VH-GY);
-      if(otherSolid){   // FLIP-PIT: there IS ground here in the OTHER aspect — flip to land on it. Make it unmistakable.
-        const pg=ctx.createLinearGradient(0,GY,0,VH); pg.addColorStop(0,IN.gTop); pg.addColorStop(0.4,IN.gBod); pg.addColorStop(1,IN.gBod);
-        ctx.globalAlpha=0.36; ctx.fillStyle=pg; ctx.fillRect(sx,GY,w,VH-GY); ctx.globalAlpha=1;
-        ctx.fillStyle=IN.gTop; ctx.globalAlpha=0.7; ctx.fillRect(sx,GY-5,w,5); ctx.globalAlpha=1;                 // ghostly platform crust
-        ctx.strokeStyle=IN.glow; ctx.lineWidth=2; ctx.setLineDash([9,6]); ctx.beginPath(); ctx.moveTo(sx,GY); ctx.lineTo(sx+w,GY); ctx.stroke(); ctx.setLineDash([]);
-        const mx=sx+w/2; if(mx>-20&&mx<VW+20){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=0.55+0.35*Math.sin(runDist*0.05);
-          ctx.fillStyle=IN.glow; ctx.font='bold 22px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('⟳',mx,GY-14); ctx.restore(); }   // "flip here" cue
+      if(otherSolid){   // FLIP-PIT: solid in the OTHER aspect — preview that world's VALUE+SHAPE (achromatic, hue-proof) + white "flip here" cue
+        const toBloom=(aspect!=='bloom');                                    // flipping takes you to the other aspect
+        ctx.globalAlpha=0.42;
+        if(toBloom){ ctx.fillStyle='rgba(255,255,255,0.16)'; ctx.fillRect(sx,GY,w,VH-GY); ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fillRect(sx,GY-5,w,3); }
+        else { ctx.fillStyle='rgba(0,0,0,0.34)'; ctx.fillRect(sx,GY,w,VH-GY); ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(sx,GY-5,w,4); }
+        ctx.globalAlpha=1;
+        ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=2; ctx.setLineDash([9,6]); ctx.beginPath(); ctx.moveTo(sx,GY); ctx.lineTo(sx+w,GY); ctx.stroke(); ctx.setLineDash([]);
+        const mx=sx+w/2; if(mx>-20&&mx<VW+20){ ctx.save(); ctx.globalAlpha=0.6+0.35*Math.sin(runDist*0.05);
+          ctx.fillStyle='#ffffff'; ctx.font='bold 22px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('⟳',mx,GY-14); ctx.restore(); }   // "flip here" cue
       } else {          // TRUE HOLE: no ground in either aspect — you must JUMP it
         ctx.fillStyle='rgba(255,90,60,0.5)'; ctx.font='bold 15px Trebuchet MS'; ctx.textAlign='center'; const mx=sx+w/2; if(mx>-20&&mx<VW+20) ctx.fillText('▲',mx,GY+20); } }
     if(s.ceilY!=null){ const cg=ctx.createLinearGradient(0,0,0,s.ceilY); cg.addColorStop(0,P.gBod); cg.addColorStop(1,P.gTop);
@@ -1179,6 +1187,16 @@ function drawHUD(){ const dm=Math.floor(meters);
     py+=24; }
   if(shield>0){ ctx.fillStyle='#9dffd0'; ctx.fillText('🛡 '+shield,VW-14,py); py+=18; }
   if(boons.revive>0){ ctx.fillStyle='#ff9aa0'; ctx.fillText('❤ EXTRA LIFE'+(boons.revive>1?' ×'+boons.revive:''),VW-14,py); }
+  // ── persistent ASPECT indicator: which world is solid right now (value + shape + label, colorblind-safe) ──
+  { const bx=12, by=58, cw=44, ch=26, gap=5, bloomA=(aspect==='bloom'), cx2=bx+cw+gap, midY=by+ch/2;
+    ctx.textAlign='left'; ctx.font='10px Trebuchet MS'; ctx.fillStyle='rgba(244,234,216,.5)'; ctx.fillText('WORLD',bx+1,by-4);
+    ctx.fillStyle=bloomA?'rgba(240,250,247,0.95)':'rgba(255,255,255,0.12)'; rrect(bx,by,cw,ch,6); ctx.fill();
+    ctx.fillStyle=bloomA?'#16302a':'rgba(255,255,255,0.42)'; ctx.beginPath(); ctx.arc(bx+13,midY,6,0,Math.PI*2); ctx.fill();
+    ctx.font='bold 11px Trebuchet MS'; ctx.fillStyle=bloomA?'#16302a':'rgba(255,255,255,0.42)'; ctx.fillText('BLM',bx+22,midY+4);
+    ctx.fillStyle=!bloomA?'rgba(14,10,16,0.95)':'rgba(0,0,0,0.32)'; rrect(cx2,by,cw,ch,6); ctx.fill();
+    ctx.fillStyle=!bloomA?'#ffae6a':'rgba(255,255,255,0.42)'; const dx=cx2+13; ctx.beginPath(); ctx.moveTo(dx,midY-6); ctx.lineTo(dx+6,midY); ctx.lineTo(dx,midY+6); ctx.lineTo(dx-6,midY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=!bloomA?'#ffce9a':'rgba(255,255,255,0.42)'; ctx.fillText('CND',cx2+22,midY+4);
+    const ax=bloomA?bx:cx2; ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=2; rrect(ax,by,cw,ch,6); ctx.stroke(); }
   if(missionFlash>0){ ctx.textAlign='center'; ctx.globalAlpha=Math.min(1,missionFlash); ctx.fillStyle='#ffd9a0'; ctx.font='bold 18px Trebuchet MS'; ctx.fillText('MISSION COMPLETE',VW/2,120); ctx.globalAlpha=1; }
   if(levelFlash>0){ ctx.textAlign='center'; ctx.globalAlpha=Math.min(1,levelFlash); ctx.fillStyle='#9dffd0'; ctx.font='bold 26px Trebuchet MS'; ctx.fillText('LEVEL '+rec.level+'!',VW/2,150); ctx.globalAlpha=1; }
 }
@@ -1294,7 +1312,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15e';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15f';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
