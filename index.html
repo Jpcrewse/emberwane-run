@@ -1254,6 +1254,15 @@ function drawVignette(){ const di=(state==='run')?depthInten():0; const inner=VH
   const g=ctx.createRadialGradient(VW/2,VH*0.5,inner,VW/2,VH*0.5,VH*0.92);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(0.7,'rgba('+Math.round(30*di)+',0,0,'+(0.12*di)+')'); g.addColorStop(1,'rgba('+Math.round(40*di)+',0,0,'+(0.4+0.32*di)+')');
   ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH); }
+function drawAspectDrift(){ if(state!=='run')return;                 // BLOOM rises (alive/growing), CINDER falls (burning) — aspect life + motion-readability, brand palette, hue-independent
+  const bloom=(aspect==='bloom'), span=VH+40; ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<14;i++){ const seed=i*47.3;
+    let x=((seed*11 - runDist*(0.05+(i%3)*0.02))%(VW+50)); if(x<0)x+=VW+50; x-=25;
+    let y=((seed*7 + (bloom? -runDist*0.05 : runDist*0.045))%span); if(y<0)y+=span; y-=20;
+    const a=0.09+0.10*Math.abs(Math.sin(runDist*0.01+i*1.7));
+    ctx.fillStyle=bloom?'rgba(150,240,222,'+a.toFixed(3)+')':'rgba(255,150,70,'+a.toFixed(3)+')';
+    ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2); ctx.fill(); }
+  ctx.restore(); }
 function drawCatchFx(){ if(catchFxT<=0)return;                       // COMMUNION: two lights meet at the foot, a bloom rises to hold you
   const t=Math.max(0,Math.min(1,catchFxT/0.55)), x=ANCHOR, y=GY, big=catchFxPerfect;
   const grow=(1-t)*(big?80:48)+8, reach=t*(big?30:20);
@@ -1274,6 +1283,7 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   const hue=lvl().hue; if(hue){ ctx.filter='hue-rotate('+hue+'deg)'; }   // recolour the whole world per level (sky, ground, set-piece together)
   drawBg(P); drawGround(P,IN);
   if(hue){ ctx.filter='none'; }
+  drawAspectDrift();   // aspect-coded ambient life, drawn hue-independent so the brand cyan/amber stays true
   if(state==='run')drawPaceGhost(IN); drawPickups(); drawParticles();
   if(state==='run'){ wickTrail.unshift(p.y); if(wickTrail.length>7)wickTrail.pop();   // afterimage speed trail
     const gc=wickGlow(P), spd=Math.min(1,(runSpeed-T.baseSpeed)/Math.max(1,T.maxAdd));
@@ -1350,7 +1360,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15h';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15i';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
