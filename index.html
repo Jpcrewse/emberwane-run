@@ -479,7 +479,7 @@ function applyCharacter(){ const c=CHARS.find(x=>x.id===rec.char)||CHARS[0];
   airJumpsMax = (c.id==='drift')?1:0; p.airJumps=airJumpsMax;
   if(c.id==='ward') shield++;
   if(c.id==='flux') comboGain*=1.25;
-  if(c.id==='ash'){ overdriveT=T.odDur*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; }        // Ashwalker bursts out of the gate
+  if(c.id==='ash'){ overdriveT=T.odDur*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; odLockM=900; }        // Ashwalker bursts out of the gate (then overdrive drops locked for 900m)
   if(c.id==='phoenix') boons.revive=1;         // Reborn carries a Second Wind
   if(c.id==='wisp') boons.feather=Math.max(boons.feather,1); }   // Wisp = permanent featherfall
 /* costs scale geometrically (~×2 per level) — the first rank is cheap, mastery is a long grind */
@@ -500,7 +500,7 @@ let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, lev
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
-let embersRun=0, magnetT=0, overdriveT=0, overdriveMax=T.odDur, shield=0, magnetExtra=0, deathCause='';
+let embersRun=0, magnetT=0, overdriveT=0, overdriveMax=T.odDur, shield=0, magnetExtra=0, deathCause='', odLockM=0;
 const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0,airJumps:0 };
 let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0, sinceChest=0;
 let pickups=[], particles=[];
@@ -720,7 +720,9 @@ function reachNow(){ const air=2*T.jumpV/T.G; return runSpeed*air*0.92; }
 function pushSeg(w,b,c,extra){ const s=Object.assign({x0:genX,x1:genX+w,bloom:b,cinder:c,kind:'rest'},extra||{}); segs.push(s); genX+=w; return s; }
 function pushEmber(x,y){ pickups.push({wx:x,y:y,kind:'ember',got:false,bob:Math.random()*6}); }
 function pushPower(x,y,kind){ pickups.push({wx:x,y:y,kind:kind,got:false,bob:Math.random()*6}); }
-function randPower(){ const r=TRT(); return r<0.5?'magnet':r<0.68?'shield':'overdrive'; }   // shield is now the rarest drop
+function randPower(){ const r=TRT();
+  if(trueM<odLockM) return r<0.65?'magnet':'shield';                 // overdrive on distance cooldown → only magnet/shield here
+  return r<0.55?'magnet':r<0.82?'shield':'overdrive'; }              // overdrive is now the RAREST drop (~18%) and odLockM stops it chaining
 function spawnPickups(s){
   if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } return; }
   const w=s.x1-s.x0; if(w<70) return;
@@ -780,7 +782,7 @@ function applyUpgrades(){ const u=rec.upgrades;
 function startRun(){
   if(dailyMode){ const sd=dateSeed(); TRT=mulberry32(sd); TRE=mulberry32((sd^0x9e3779b9)>>>0); } else { TRT=Math.random; TRE=Math.random; }
   state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
-  streak=0; nearMiss=0; best=false; flash=0; shake=0; flipPunch=0; flowSurge=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
+  streak=0; nearMiss=0; best=false; flash=0; shake=0; flipPunch=0; flowSurge=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0; odLockM=0;
   combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; newUnlock=''; paused=false;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0; depth=0; deathCause='';
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
@@ -884,7 +886,7 @@ function collectPickups(dt,ods){ const magnet=magnetT>0||ods||rec.char==='hoard'
 function activatePower(kind){ sfx('power');
   if(kind==='magnet') magnetT=T.magnetDur*(1+boons.overcharge*0.6)+magnetExtra;
   else if(kind==='shield') shield++;
-  else if(kind==='overdrive'){ overdriveT=T.odDur*(1+boons.overcharge*0.6)*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; } }   // Afterburner extends overdrive
+  else if(kind==='overdrive'){ overdriveT=T.odDur*(1+boons.overcharge*0.6)*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; odLockM=trueM+1200; } }   // Afterburner extends overdrive; odLockM blocks the next overdrive drop for 1200m so it can't chain
 function openChest(){ sfx('best'); flash=Math.max(flash,0.6); shake=Math.max(shake,10);   // high-risk reward roll
   const rng=dailyMode?TRE:Math.random; const r=rng(); let msg;
   if(r<0.45){ const j=25+Math.floor(rng()*45)+depth*4; embersRun+=j; msg='✦ '+j+' EMBERS'; }
@@ -1283,7 +1285,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15c';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15d';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
