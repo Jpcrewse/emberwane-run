@@ -228,7 +228,7 @@ const MUSIC={
   dune:  {root:138.59, scale:[0,2,4,6,7,9,11],wave:'triangle',bpm:92} }; // lydian — shimmering, warm
 let MUSIC_KEYS=['cinder','grove','ashen','still','frost','tempest','dune'];
 let musBus=null, musFilter=null, musTimer=null, musStep=0, musNextT=0, musArp=0, musDetune=0;
-function curMusic(){ return (state==='run') ? (MUSIC[MUSIC_KEYS[biomeIdx%MUSIC_KEYS.length]]||MUSIC.menu) : MUSIC.menu; }
+function curMusic(){ return (state==='run') ? (MUSIC[MUSIC_KEYS[lvl().base]]||MUSIC.menu) : MUSIC.menu; }
 function musIntensity(){ if(state!=='run')return 0.12;
   return Math.max(0,Math.min(1, combo/18*0.45 + Math.min(depth,12)/12*0.3 + (overdriveT>0?0.25:0) + (eventKind==='surge'?0.2:0) + (runSpeed-T.baseSpeed)/Math.max(1,T.maxAdd)*0.1)); }
 function noteFreq(cfg,deg,oct){ const n=cfg.scale.length; const i=((deg%n)+n)%n; const semi=cfg.scale[i]+12*(oct+Math.floor(deg/n)); return cfg.root*Math.pow(2,semi/12); }
@@ -278,8 +278,18 @@ const BIOMES=[
                       cinder:{sky0:'#1c1432',sky1:'#0e0818',gTop:'#7a5ad8',gBod:'#2a1f46',ghost:'rgba(210,180,255,.16)',wick:'#f0e6ff',glow:'#b08aff',far:'#2a1f46'}},
  {name:'DUNESEA',     bloom:{sky0:'#101a2a',sky1:'#080c16',gTop:'#6a78a0',gBod:'#1a2236',ghost:'rgba(185,205,255,.15)',wick:'#eef2ff',glow:'#8aa0d8',far:'#1a2236'},
                       cinder:{sky0:'#2e1d08',sky1:'#160c04',gTop:'#d2a050',gBod:'#3a2810',ghost:'rgba(255,210,140,.16)',wick:'#fff0d0',glow:'#ffb840',far:'#3a2810'}} ];
-function biome(){ return BIOMES[Math.min(BIOMES.length-1,biomeIdx)]; }
 const BIOME_ACC=['#ff7a2a','#6ee08a','#9fb4c8','#b9a0ff','#9fe8ff','#bcdcff','#ffd98a'];
+/* ---- 50 unique levels: the 7 hand-tuned biomes are "bases", recoloured across hue bands so each level looks & is named differently ---- */
+const LEVEL_NAMES=['CINDERFIELDS','SUNKEN GROVE','ASHEN REACH','THE STILLNESS','FROSTREACH','TEMPEST','DUNESEA',
+ 'EMBERWASTE','VERDANT DEEP','PALE EXPANSE','VIOLET VOID','GLACIER MAW','STORMCROWN','GOLDEN WASTES',
+ 'MAGMA HOLLOWS','CORAL ABYSS','BONE MARCHES','ASTRAL DRIFT','RIMEFALL','THUNDERREACH','SCORCHED DUNES',
+ 'THE SCORCHLANDS','TIDEWRECK','GREYWASTE','STARLESS GULF','FROSTSPIRE','GALEHOLLOW','SUNSCAR',
+ 'OBSIDIAN FLATS','DROWNED VAULT','DUSTHALLS','THE FARLIGHT','WHITEVEIL','LIGHTNING WEALD','AMBER SEA',
+ 'PYRECLIFFS','KELPMIRE','CINDERASH','NEBULA REST','HOARFROST','SQUALL END','MIRAGE BASIN',
+ 'THE LASTFLAME','SILTGRAVE','DIMWASTE','THE VEILDEEP','SHIVERREACH','VOLTPEAK','GLASSDUNES','THE FINAL WANE'];
+const LEVELS=[]; for(let i=0;i<50;i++) LEVELS.push({ name:LEVEL_NAMES[i]||('SECTOR '+(i+1)), base:i%BIOMES.length, hue:(Math.floor(i/BIOMES.length)*45)%360 });
+function lvl(){ return LEVELS[((biomeIdx%LEVELS.length)+LEVELS.length)%LEVELS.length]||LEVELS[0]; }
+function biome(){ return BIOMES[lvl().base]; }
 
 /* ---- themed background props per biome ---- */
 function drawDeadTree(x,h){ ctx.save(); ctx.translate(x,GY); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=4; ctx.lineCap='round';
@@ -374,7 +384,7 @@ function drawPyramid(x,h){ if(x<-h-40||x>VW+h+40)return; ctx.save(); ctx.transla
   ctx.fillStyle='rgba(38,26,12,0.85)'; ctx.beginPath(); ctx.moveTo(0,-h); ctx.lineTo(h*0.9,0); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
   ctx.strokeStyle='rgba(255,200,120,0.22)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,-h); ctx.lineTo(0,0); ctx.stroke();
   ctx.restore(); }
-function drawBiomeProps(P){ const idx=Math.min(BIOMES.length-1,biomeIdx); const acc=BIOME_ACC[idx]; const off=runDist*0.12;
+function drawBiomeProps(P){ const idx=lvl().base; const acc=BIOME_ACC[idx]; const off=runDist*0.12;
   if(idx===0){ // CINDERFIELDS — erupting volcano, burnt forest, ember storm
     drawPeaks(GY,72,'rgba(28,11,7,0.7)',0.05);                                            // far volcanic ridge
     const vw=940; for(let i=-1;i<VW/vw+2;i++){ drawVolcano(i*vw-((runDist*0.085)%vw)+220); }   // ⛰ signature volcano
@@ -447,7 +457,7 @@ function applyCharacter(){ const c=CHARS.find(x=>x.id===rec.char)||CHARS[0];
   airJumpsMax = (c.id==='drift')?1:0; p.airJumps=airJumpsMax;
   if(c.id==='ward') shield++;
   if(c.id==='flux') comboGain*=1.25;
-  if(c.id==='ash') overdriveT=T.odDur*(1+(rec.upgrades.afterburn||0)*0.2);        // Ashwalker bursts out of the gate
+  if(c.id==='ash'){ overdriveT=T.odDur*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; }        // Ashwalker bursts out of the gate
   if(c.id==='phoenix') boons.revive=1;         // Reborn carries a Second Wind
   if(c.id==='wisp') boons.feather=Math.max(boons.feather,1); }   // Wisp = permanent featherfall
 /* costs scale geometrically (~×2 per level) — the first rank is cheap, mastery is a long grind */
@@ -468,7 +478,7 @@ let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, lev
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
-let embersRun=0, magnetT=0, overdriveT=0, shield=0, magnetExtra=0;
+let embersRun=0, magnetT=0, overdriveT=0, overdriveMax=T.odDur, shield=0, magnetExtra=0;
 const p={ wx:ANCHOR,y:GY,vy:0,onGround:true,coyote:0,jumpBuf:0,jumpHeld:false,cutDone:true,run:0,invuln:0,airJumps:0 };
 let segs=[], genX=0, lastAspect='bloom', needRest=false, sincePower=0, sinceChest=0;
 let pickups=[], particles=[];
@@ -693,22 +703,19 @@ function spawnPickups(s){
   if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } return; }
   const w=s.x1-s.x0; if(w<70) return;
   const r=TRT();
-  if(s.kind==='rest' && w>250 && r<0.52){          // ~52% of big rests reward a jump (was 40%)
-    if(r<0.22){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
+  if(s.kind==='rest' && w>250 && r<0.42){          // ~40% of rests reward a jump
+    if(r<0.20){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
       for(let i=0;i<n;i++){ const f=i/(n-1); pushEmber(cx0+span*f, GY-30-Math.sin(f*Math.PI)*86); } }
-    else if(r<0.40){ const cx=s.x0+w*0.5;                    // a floating high cluster — jump straight up
+    else { const cx=s.x0+w*0.5;                              // a floating high cluster — jump straight up
       pushEmber(cx-24,GY-86); pushEmber(cx,GY-104); pushEmber(cx+24,GY-86);
       pushEmber(cx-78,GY-28); pushEmber(cx+78,GY-28); }
-    else { const cx=s.x0+w*0.5;                              // BONUS arc up high — commit to a full jump
-      for(let i=0;i<7;i++){ const f=i/6; pushEmber(cx-90+180*f, GY-44-Math.sin(f*Math.PI)*96); } }
-  } else {                                          // baseline line — rests gently undulate so you tip-toe for some
-    const isRest=s.kind==='rest';
+  } else {                                          // easy ground line (baseline) — collectable while running
     for(let x=s.x0+34;x<s.x1-22;x+=48){
       if(s.kind==='spike'&&Math.abs(x-s.spikeX)<42)continue;
       if(s.kind==='wall'&&Math.abs(x-s.wallX)<30)continue;
       if(s.kind==='bolt'&&Math.abs(x-s.boltX)<48)continue;
       if(s.kind==='geyser'&&Math.abs(x-s.geyserX)<36)continue;
-      pushEmber(x, isRest ? GY-30-Math.round(Math.abs(Math.sin(x*0.02))*24) : GY-28); }   // hazard rows stay low & safe
+      pushEmber(x, GY-28); }
   }
 }
 function genAhead(){
@@ -720,9 +727,10 @@ function genAhead(){
         pickups.push({wx:s.x0+(s.x1-s.x0)/2, y:GY-132, kind:'chest', got:false, bob:Math.random()*6}); } continue; }
     const r=TRT();
     const pPlain=(0.30-0.14*d)*(eventKind==='surge'?0.45:1), pGap=0.20+0.16*d;   // denser obstacles during a surge
-    const types=['hole','pit']; if(biomeIdx>=1){types.push('spike');types.push('wall');} if(biomeIdx>=2)types.push('pitceil');
-    if(depth>=2){ if(biomeIdx===5){ types.push('bolt'); if(depth>=5)types.push('bolt'); }      // signature biome hazards — gentle early (depth>=2 only)
-      else if(biomeIdx===6){ types.push('geyser'); if(depth>=5)types.push('geyser'); } }
+    const types=['hole','pit']; if(trueM>=250){types.push('spike');types.push('wall');} if(trueM>=500)types.push('pitceil');   // gentle only in the very first stretch
+    const base=lvl().base;
+    if(depth>=2){ if(base===5){ types.push('bolt'); if(depth>=5)types.push('bolt'); }            // Tempest-family levels: lightning. Dunesea-family: geysers (gentle early — depth>=2)
+      else if(base===6){ types.push('geyser'); if(depth>=5)types.push('geyser'); } }
     if(r<pPlain){ const s=pushSeg(trnd(220,320-120*d),true,true,{kind:'rest'}); spawnPickups(s); }
     else if(r<pPlain+pGap){ const w=Math.min(reachNow()*0.45,reachNow()*0.5); const s=pushSeg(Math.max(90,w),false,false,{kind:'hole'}); spawnPickups(s); needRest=true; }
     else { const k=types[Math.floor(TRT()*types.length)];
@@ -846,7 +854,7 @@ function collectPickups(dt,ods){ const magnet=magnetT>0||ods||rec.char==='hoard'
 function activatePower(kind){ sfx('power');
   if(kind==='magnet') magnetT=T.magnetDur*(1+boons.overcharge*0.6)+magnetExtra;
   else if(kind==='shield') shield++;
-  else if(kind==='overdrive') overdriveT=T.odDur*(1+boons.overcharge*0.6)*(1+(rec.upgrades.afterburn||0)*0.2); }   // Afterburner extends overdrive
+  else if(kind==='overdrive'){ overdriveT=T.odDur*(1+boons.overcharge*0.6)*(1+(rec.upgrades.afterburn||0)*0.2); overdriveMax=overdriveT; } }   // Afterburner extends overdrive
 function openChest(){ sfx('best'); flash=Math.max(flash,0.6); shake=Math.max(shake,10);   // high-risk reward roll
   const rng=dailyMode?TRE:Math.random; const r=rng(); let msg;
   if(r<0.45){ const j=25+Math.floor(rng()*45)+depth*4; embersRun+=j; msg='✦ '+j+' EMBERS'; }
@@ -891,10 +899,10 @@ function update(dt){
   if(nd>depth){ depth=nd; depthTierUp(); }                                            // a new DEPTH tier every 500m — escalation never caps
   runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul;   // base ramp peaks early; depth keeps the runner accelerating far past 2km
   runDist+=runSpeed*dt; p.wx=runDist+ANCHOR; p.run+=dt*runSpeed*0.02;
-  trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%BIOMES.length;               // biomes LOOP forever (rising corruption each lap)
+  trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%LEVELS.length;               // 50 levels, then loop (rising corruption each lap)
   if(trueM>=nextDraftM){ nextDraftM+=350; spawnBoonOrbs(); }   // boon orbs every ~350m (no pause)
   if(boons.magnet) magnetT=Math.max(magnetT,0.15);                       // Lodestone boon: passive magnet
-  if(nb!==biomeIdx){ biomeIdx=nb; areaCard={name:biome().name,t:0,dur:2.6}; setDrone(); }
+  if(nb!==biomeIdx){ biomeIdx=nb; areaCard={name:lvl().name,t:0,dur:2.6}; setDrone(); }
   genAhead();
   paceAcc+=dt; if(paceAcc>=0.1){ paceAcc=0; paceRec.push({t:+runTime.toFixed(2),d:Math.floor(meters)}); if(paceRec.length>4000)paceRec.shift(); }
   if(magnetT>0)magnetT-=dt; if(p.invuln>0)p.invuln-=dt;
@@ -962,7 +970,7 @@ function drawGround(P,IN){
       ctx.fillStyle=P.gTop; ctx.fillRect(sx,GY-5,w,6);                       // crust
       ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(sx,GY-5,w,2);     // highlight
       ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(sx,GY+1,w,3);          // under-crust shadow
-      const acc=BIOME_ACC[Math.min(BIOMES.length-1,biomeIdx)]; ctx.fillStyle=acc;
+      const acc=BIOME_ACC[lvl().base]; ctx.fillStyle=acc;
       for(let gx=Math.ceil(sx/24)*24; gx<ex; gx+=24){ const hh=2+((Math.floor(gx/24)*13)%4);
         if(biomeIdx===0){ ctx.globalAlpha=0.65; ctx.fillRect(gx,GY-5-hh,2,hh); }                                  // ember specks
         else { ctx.globalAlpha=0.55; ctx.beginPath(); ctx.moveTo(gx-3,GY-4); ctx.lineTo(gx,GY-7-hh); ctx.lineTo(gx+3,GY-4); ctx.closePath(); ctx.fill(); } }  // tufts
@@ -1088,12 +1096,17 @@ function drawHUD(){ const dm=Math.floor(meters);
   ctx.textAlign='left'; ctx.fillStyle='#ffcf6a'; ctx.font='bold 18px Trebuchet MS'; ctx.fillText('✦ '+embersRun,16,28);
   let bx=16; ctx.font='15px Trebuchet MS'; for(const b of BOONS){ const lv=boons[b.id]; if(lv>0){ ctx.fillText(b.ico+(lv>1?'×'+lv:''),bx,50); bx+=lv>1?40:30; } }   // active boons
   // biome
-  ctx.textAlign='right'; ctx.fillStyle=dailyMode?'#ffd9a0':'rgba(244,234,216,.5)'; ctx.font='12px Trebuchet MS'; ctx.fillText((dailyMode?'🗓 DAILY · ':'')+biome().name+(rec.bestDist?'   ·   BEST '+rec.bestDist+'m':''),VW-14,24);
+  ctx.textAlign='right'; ctx.fillStyle=dailyMode?'#ffd9a0':'rgba(244,234,216,.5)'; ctx.font='12px Trebuchet MS'; ctx.fillText((dailyMode?'🗓 DAILY · ':'')+'Lv'+(biomeIdx+1)+' '+lvl().name+(rec.bestDist?'   ·   BEST '+rec.bestDist+'m':''),VW-14,24);
   ctx.textAlign='center'; ctx.fillStyle=depth>=8?'#ff5a3a':depth>=4?'#ff9a4d':'#ffd9a0'; ctx.font='bold 15px Trebuchet MS'; ctx.fillText('DEPTH '+depth,VW/2,102);   // the deep-run chase stat
   // power-up timers
   let py=44; ctx.textAlign='right';
   if(magnetT>0){ ctx.fillStyle='#bda0ff'; ctx.fillText('M '+magnetT.toFixed(1)+'s',VW-14,py); py+=18; }
-  if(overdriveT>0){ ctx.fillStyle='#ffb030'; ctx.fillText('OVERDRIVE '+overdriveT.toFixed(1)+'s',VW-14,py); py+=18; }
+  if(overdriveT>0){ const ending=overdriveT<1.6, bw=132, frac=Math.max(0,Math.min(1,overdriveT/overdriveMax));
+    const blink = ending ? (Math.floor(overdriveT*9)%2===0) : true; const col = ending?'#ff6a2a':'#ffb030';
+    if(blink){ ctx.fillStyle=col; ctx.fillText('⚡ OVERDRIVE',VW-14,py); }
+    ctx.fillStyle='rgba(255,176,48,0.18)'; ctx.fillRect(VW-14-bw,py+5,bw,5);                 // depleting timer bar
+    if(blink){ ctx.fillStyle=col; ctx.fillRect(VW-14-bw*frac,py+5,bw*frac,5); }
+    py+=24; }
   if(shield>0){ ctx.fillStyle='#9dffd0'; ctx.fillText('🛡 '+shield,VW-14,py); py+=18; }
   if(boons.revive>0){ ctx.fillStyle='#ff9aa0'; ctx.fillText('❤ EXTRA LIFE'+(boons.revive>1?' ×'+boons.revive:''),VW-14,py); }
   if(missionFlash>0){ ctx.textAlign='center'; ctx.globalAlpha=Math.min(1,missionFlash); ctx.fillStyle='#ffd9a0'; ctx.font='bold 18px Trebuchet MS'; ctx.fillText('MISSION COMPLETE',VW/2,120); ctx.globalAlpha=1; }
@@ -1137,7 +1150,10 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   const B=biome(); const P=B[aspect]; const IN=B[aspect==='bloom'?'cinder':'bloom'];
   ctx.save(); if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   if(flipY<0.999){ ctx.translate(0,VH/2); ctx.scale(1,flipY); ctx.translate(0,-VH/2); }   // INVERSION: flip the world vertically
-  drawBg(P); drawGround(P,IN); if(state==='run')drawPaceGhost(IN); drawPickups(); drawParticles();
+  const hue=lvl().hue; if(hue){ ctx.filter='hue-rotate('+hue+'deg)'; }   // recolour the whole world per level (sky, ground, set-piece together)
+  drawBg(P); drawGround(P,IN);
+  if(hue){ ctx.filter='none'; }
+  if(state==='run')drawPaceGhost(IN); drawPickups(); drawParticles();
   if(state==='run'){ wickTrail.unshift(p.y); if(wickTrail.length>7)wickTrail.pop();   // afterimage speed trail
     const gc=wickGlow(P), spd=Math.min(1,(runSpeed-T.baseSpeed)/Math.max(1,T.maxAdd));
     for(let i=wickTrail.length-1;i>=2;i--){ const a=0.15*(1-i/8)*(0.35+0.65*spd); if(a>0.012) drawWickGhost(ANCHOR-i*(4+spd*6), wickTrail[i], gc, a); } }
@@ -1146,13 +1162,14 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   if(state==='run') drawSpeedLines();
   drawVignette();
   drawFloats();   // drawn unflipped (screen space) so popup text stays upright during inversion
-  if(overdriveT>0){ ctx.fillStyle='rgba(255,176,48,'+(0.12+0.06*Math.sin(p.run*40))+')'; ctx.fillRect(0,0,VW,VH); }
+  if(overdriveT>0){ const end=overdriveT<1.6; const a = end ? (0.04+0.13*Math.abs(Math.sin(p.run*90))) : (0.12+0.06*Math.sin(p.run*40));   // flickers as it runs out
+    ctx.fillStyle='rgba(255,176,48,'+a+')'; ctx.fillRect(0,0,VW,VH); }
   if(flash>0){ ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; ctx.fillRect(0,0,VW,VH); }
   if(eventKind==='surge'){ const adv=VW*(0.22+0.18*Math.abs(Math.sin(runDist*0.015))); const g=ctx.createLinearGradient(0,0,adv,0);
     g.addColorStop(0,'rgba(18,6,28,0.8)'); g.addColorStop(1,'rgba(18,6,28,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,adv,VH); }
   if(eventKind==='frenzy'){ ctx.fillStyle='rgba(255,200,90,'+(0.06+0.04*Math.sin(p.run*30))+')'; ctx.fillRect(0,0,VW,VH); }
   if(Math.abs(flipY)<0.55){ const fa=Math.min(0.92,(0.55-Math.abs(flipY))*2.3); ctx.fillStyle='rgba(245,250,255,'+fa+')'; ctx.fillRect(0,0,VW,VH); }   // cover the inversion collapse so there's no blank frame
-  if(state==='run'){ const loop=Math.floor(trueM/(T.biomeM*BIOMES.length)); if(loop>0){ ctx.fillStyle='rgba(85,0,30,'+Math.min(0.42,loop*0.1)+')'; ctx.fillRect(0,0,VW,VH); } }   // the Stillness corruption deepens each lap
+  if(state==='run'){ const loop=Math.floor(trueM/(T.biomeM*LEVELS.length)); if(loop>0){ ctx.fillStyle='rgba(85,0,30,'+Math.min(0.42,loop*0.1)+')'; ctx.fillRect(0,0,VW,VH); } }   // corruption deepens after all 50 levels
   if(state==='run'){ drawHUD(); drawAreaCard(); }
   if(state==='title') drawTitle();
   if(state==='dead') drawDead();
@@ -1180,7 +1197,7 @@ function renderHistory(){
   document.getElementById('histSub').textContent='Level '+rec.level+'  ·  '+rec.runs+' runs  ·  '+rec.achievements.length+'/'+ACH.length+' achievements';
   const S=[['Best distance',rec.bestDist+' m'],['Longest survival',rec.bestTime.toFixed(1)+' s'],['Best combo','×'+rec.bestStreak],
     ['Total distance',(rec.total/1000).toFixed(2)+' km'],['Embers earned','✦ '+rec.embersEarned],['Flips (lifetime)',rec.flipsTotal],
-    ['Furthest biome',(BIOMES[Math.min(BIOMES.length-1,rec.maxBiome)]||{}).name||'—'],['Best perfects (run)',rec.bestPerfects],['Best embers (run)','✦ '+(rec.bestEmbersRun||0)],['Deepest reached','Depth '+(rec.bestDepth||0)],
+    ['Furthest level','Lv'+((rec.maxBiome||0)+1)+' '+((LEVELS[Math.min(LEVELS.length-1,rec.maxBiome||0)]||{}).name||'—')],['Best perfects (run)',rec.bestPerfects],['Best embers (run)','✦ '+(rec.bestEmbersRun||0)],['Deepest reached','Depth '+(rec.bestDepth||0)],
     ['Total runs',rec.runs],['Today’s best',(rec.dayKey===today()?rec.dayBest:0)+' m']];
   let h='<div class="statgrid">'; for(const [k,v] of S) h+='<div><span>'+k+'</span><b>'+v+'</b></div>'; h+='</div>';
   h+='<div class="achlabel">— ACHIEVEMENTS —</div><div class="achgrid">';
@@ -1319,7 +1336,7 @@ window.__run={ get state(){return state;}, get p(){return p;}, get meters(){retu
   segAt, solidAt, bothGapAt, get rec(){return rec;}, get mult(){return mult;}, get aspect(){return aspect;}, get runSpeed(){return runSpeed;},
   get runDist(){return runDist;}, get runTime(){return runTime;}, get streak(){return streak;}, get biomeIdx(){return biomeIdx;},
   get pickups(){return pickups;}, get embersRun(){return embersRun;}, get shield(){return shield;}, set shield(v){shield=v;},
-  get overdriveT(){return overdriveT;}, giveOverdrive(){overdriveT=T.odDur;}, activatePower, get missions(){return rec.missions;},
+  get overdriveT(){return overdriveT;}, giveOverdrive(){overdriveT=T.odDur; overdriveMax=T.odDur;}, activatePower, get missions(){return rec.missions;},
   get segs(){return segs;}, set runDist(v){runDist=v; p.wx=runDist+ANCHOR;}, set aspect(v){aspect=v;},
   get combo(){return combo;}, get flowT(){return flowT;}, get floats(){return floats;}, get hitstop(){return hitstop;},
   get invertT(){return eventKind==='invert'?eventT:0;}, get flipY(){return flipY;}, set invCd(v){eventCd=v;},
