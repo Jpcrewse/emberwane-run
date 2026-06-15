@@ -930,7 +930,7 @@ function update(dt){
   runTime+=dt;
   trueM=runDist/PPM; const nd=Math.floor(trueM/500);
   if(nd>depth){ depth=nd; depthTierUp(); }                                            // a new DEPTH tier every 500m — escalation never caps
-  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul*(flowSurge>0?1.12:1);   // perfect-flip surge gives a brief speed kick
+  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul*(flowSurge>0?1+0.06*(flowSurge/0.6):1);   // perfect-flip surge: gentle +6% that eases out (no jarring yank)
   runDist+=runSpeed*dt; p.wx=runDist+ANCHOR; p.run+=dt*runSpeed*0.02;
   trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%LEVELS.length;               // 50 levels, then loop (rising corruption each lap)
   if(trueM>=nextDraftM){ nextDraftM+=350; spawnBoonOrbs(); }   // boon orbs every ~350m (no pause)
@@ -1282,7 +1282,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15b';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15c';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
