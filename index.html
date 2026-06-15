@@ -496,7 +496,7 @@ const UPG={ spark:{name:'Spark — head start',max:5,desc:'+40 m head start per 
 let state='title', aspect='bloom';
 let runDist=0, runTime=0, runSpeed=T.baseSpeed, trueM=0, biomeIdx=0;
 let meters=0, mult=1, comboGain=0.18, combo=0, flowT=0, streak=0, nearMiss=0, best=false; const FLOW_MAX=3; let flowMax=FLOW_MAX;
-let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, levelFlash=0, floats=[], hitstop=0, slowT=0;
+let flash=0, shake=0, sawGap=false, deathT=0, areaCard=null, missionFlash=0, levelFlash=0, floats=[], hitstop=0, slowT=0, flipPunch=0, flowSurge=0;
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
@@ -780,7 +780,7 @@ function applyUpgrades(){ const u=rec.upgrades;
 function startRun(){
   if(dailyMode){ const sd=dateSeed(); TRT=mulberry32(sd); TRE=mulberry32((sd^0x9e3779b9)>>>0); } else { TRT=Math.random; TRE=Math.random; }
   state='run'; aspect='bloom'; runDist=0; runTime=0; runSpeed=T.baseSpeed; trueM=0; biomeIdx=0;
-  streak=0; nearMiss=0; best=false; flash=0; shake=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
+  streak=0; nearMiss=0; best=false; flash=0; shake=0; flipPunch=0; flowSurge=0; sawGap=false; deathT=0; areaCard=null; embersRun=0; magnetT=0; overdriveT=0;
   combo=0; flowT=0; floats=[]; hitstop=0; slowT=0; perfectsRun=0; newAch=[]; newUnlock=''; paused=false;
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0; depth=0; deathCause='';
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
@@ -822,11 +822,13 @@ function die(){ if(state!=='run')return;
 /* ---- input ---- */
 function flip(){ if(state!=='run')return;
   const before=solidAt(p.wx); aspect=aspect==='bloom'?'cinder':'bloom'; const after=solidAt(p.wx);
-  flash=0.26; setDrone(); sfx('flip'); mprog('flips',1); rec.flipsTotal++;
+  flash=Math.max(flash,0.34); flipPunch=1; shake=Math.max(shake,3); setDrone(); sfx('flip'); mprog('flips',1); rec.flipsTotal++;   // the flip is now an EVENT: zoom-snap + punch
   const Pg=biome()[aspect];
-  for(let i=0;i<14;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-90,90),vy:rnd(-120,40),life:.4,max:.4,r:rnd(1,3),c:Pg.glow,g:120});
+  for(let i=0;i<16;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-110,110),vy:rnd(-130,50),life:.4,max:.4,r:rnd(1,3),c:Pg.glow,g:120});
   if(!before&&after){ nearMiss++; mprog('clutch',1);
-    const perfect=(p.y-GY)<8; if(perfect)pushFloat('PERFECT FLIP','#bdf5e8'); addCombo(perfect);
+    const perfect=(p.y-GY)<8; addCombo(perfect);
+    if(perfect){ flowSurge=Math.max(flowSurge,0.6); flash=Math.max(flash,0.55); shake=Math.max(shake,8); pushFloat('PERFECT FLIP  ⚡','#bdf5e8',22);   // reward: a speed SURGE you crave (the seed of "Heat")
+      for(let i=0;i<18;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-220,220),vy:rnd(-240,-10),life:.6,max:.6,r:rnd(2,3.5),c:i%2?'#bdf5e8':'#fff',g:120}); }
     if(perfect&&boons.mirrorstep){ p.invuln=Math.max(p.invuln,0.35+0.25*boons.mirrorstep); pushFloat('MIRRORSTEP','#cfe8ff',18);   // perfect Turn -> phase through hazards
       for(let i=0;i<8;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-160,160),vy:rnd(-120,120),life:.5,max:.5,r:rnd(1,3),c:'#cfe8ff',g:0}); }
     if(boons.doubletake){ combo+=boons.doubletake; flowT=flowMax; pushFloat('+'+boons.doubletake+' COMBO','#ffd9a0',16); }   // Doubletake rewards the clutch Turn
@@ -917,6 +919,7 @@ function update(dt){
   for(const pa of particles){ pa.vy+=pa.g*dt; pa.x+=pa.vx*dt; pa.y+=pa.vy*dt; pa.life-=dt; }
   particles=particles.filter(p=>p.life>0);
   if(flash>0)flash-=dt; if(shake>0)shake=Math.max(0,shake-30*dt);
+  if(flipPunch>0)flipPunch=Math.max(0,flipPunch-dt*7); if(flowSurge>0)flowSurge-=dt;
   if(missionFlash>0)missionFlash-=dt; if(levelFlash>0)levelFlash-=dt;
   if(areaCard){ areaCard.t+=dt; if(areaCard.t>areaCard.dur)areaCard=null; }
   if(state==='dead'){ deathT+=dt; return; }
@@ -927,7 +930,7 @@ function update(dt){
   runTime+=dt;
   trueM=runDist/PPM; const nd=Math.floor(trueM/500);
   if(nd>depth){ depth=nd; depthTierUp(); }                                            // a new DEPTH tier every 500m — escalation never caps
-  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul;   // base ramp peaks early; depth keeps the runner accelerating far past 2km
+  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul*(flowSurge>0?1.12:1);   // perfect-flip surge gives a brief speed kick
   runDist+=runSpeed*dt; p.wx=runDist+ANCHOR; p.run+=dt*runSpeed*0.02;
   trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%LEVELS.length;               // 50 levels, then loop (rising corruption each lap)
   if(trueM>=nextDraftM){ nextDraftM+=350; spawnBoonOrbs(); }   // boon orbs every ~350m (no pause)
@@ -1207,6 +1210,7 @@ function drawVignette(){ const di=(state==='run')?depthInten():0; const inner=VH
 function draw(){ if(state==='map'){ drawMap(); return; }
   const B=biome(); const P=B[aspect]; const IN=B[aspect==='bloom'?'cinder':'bloom'];
   ctx.save(); if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  if(flipPunch>0){ const fp=1+flipPunch*0.035; ctx.translate(VW/2,VH/2); ctx.scale(fp,fp); ctx.translate(-VW/2,-VH/2); }   // flip zoom-snap
   if(flipY<0.999){ ctx.translate(0,VH/2); ctx.scale(1,flipY); ctx.translate(0,-VH/2); }   // INVERSION: flip the world vertically
   const hue=lvl().hue; if(hue){ ctx.filter='hue-rotate('+hue+'deg)'; }   // recolour the whole world per level (sky, ground, set-piece together)
   drawBg(P); drawGround(P,IN);
@@ -1223,6 +1227,7 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   if(overdriveT>0){ const end=overdriveT<1.6; const a = end ? (0.04+0.13*Math.abs(Math.sin(p.run*90))) : (0.12+0.06*Math.sin(p.run*40));   // flickers as it runs out
     ctx.fillStyle='rgba(255,176,48,'+a+')'; ctx.fillRect(0,0,VW,VH); }
   if(flash>0){ ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; ctx.fillRect(0,0,VW,VH); }
+  if(flowSurge>0){ const sg=ctx.createRadialGradient(VW/2,VH/2,VH*0.32,VW/2,VH/2,VH*0.95); sg.addColorStop(0,'rgba(120,240,255,0)'); sg.addColorStop(1,'rgba(120,240,255,'+(0.34*flowSurge)+')'); ctx.fillStyle=sg; ctx.fillRect(0,0,VW,VH); }   // perfect-flip surge edge glow
   if(eventKind==='surge'){ const adv=VW*(0.22+0.18*Math.abs(Math.sin(runDist*0.015))); const g=ctx.createLinearGradient(0,0,adv,0);
     g.addColorStop(0,'rgba(18,6,28,0.8)'); g.addColorStop(1,'rgba(18,6,28,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,adv,VH); }
   if(eventKind==='frenzy'){ ctx.fillStyle='rgba(255,200,90,'+(0.06+0.04*Math.sin(p.run*30))+')'; ctx.fillRect(0,0,VW,VH); }
@@ -1277,7 +1282,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15a';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15b';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
