@@ -1098,7 +1098,7 @@ function drawPickups(){ for(const k of pickups){ const x=k.wx-runDist; if(x<-30|
       ctx.fillStyle=c; ctx.font='bold 14px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(k.kind==='magnet'?'M':k.kind==='shield'?'S':'O',x,y+1); ctx.textBaseline='alphabetic'; } } }
 let wickTrail=[];
-function wickGlow(P){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=CHARS.find(c=>c.id===rec.char)||CHARS[0]; return (ch&&ch.glow)||sk.glow||P.glow; }
+function wickGlow(P){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=CHARS.find(c=>c.id===rec.char)||CHARS[0]; return sk.glow||(ch&&ch.glow)||P.glow; }   // equipped skin wins over character tint
 function drawWickGhost(x,y,gc,a){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=a;
   const gg=ctx.createRadialGradient(x,y-16,2,x,y-16,24); gg.addColorStop(0,gc); gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(x,y-16,24,0,Math.PI*2); ctx.fill();
   ctx.fillStyle=gc; rrect(x-7,y-31,14,25,6); ctx.fill(); ctx.restore(); }
@@ -1125,7 +1125,7 @@ function wickSkinFlare(sk,t){ const pat=sk.pattern; if(!pat||pat==='none')return
   else if(pat==='scales'){ for(let k=0;k<4;k++){ const ph=(t*1.5+k*0.4)%1; ctx.globalAlpha=0.55*(1-ph); ctx.beginPath(); ctx.arc(-14-ph*20,-14+Math.sin(k*1.3)*8,2-ph,0,Math.PI*2); ctx.fill(); } }   // trailing wisps
   ctx.globalAlpha=1; ctx.restore(); }
 function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=CHARS.find(c=>c.id===rec.char)||CHARS[0];
-  const wc=(ch&&ch.wick)||sk.wick||P.wick, gc=(ch&&ch.glow)||sk.glow||P.glow;
+  const wc=sk.wick||(ch&&ch.wick)||P.wick, gc=sk.glow||(ch&&ch.glow)||P.glow;   // equipped skin wins over character tint (default 'ember' skin is null → character shows through)
   ctx.save(); ctx.translate(x,y); const t=p.run; const bob=state==='run'?Math.sin(t*4)*2:0;
   ctx.globalCompositeOperation='lighter'; const gg=ctx.createRadialGradient(0,-16,2,0,-16,34);
   gg.addColorStop(0,gc); gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,-16,34,0,Math.PI*2); ctx.fill();
@@ -1362,7 +1362,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15j';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15k';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
