@@ -138,7 +138,7 @@
   <button class="ovx" id="lbX">✕</button>
   <h2>LEADERBOARD</h2>
   <div class="sub" id="lbSub"></div>
-  <div class="tabs" id="lbTabs"><div class="tab on" data-board="daily">DAILY</div><div class="tab" data-board="alltime">ALL-TIME</div></div>
+  <div class="tabs" id="lbTabs"><div class="tab on" data-board="daily">DAILY</div><div class="tab" data-board="alltime">ALL-TIME</div><div class="tab" data-board="embers">EMBERS</div></div>
   <div id="lbHandleRow" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
     <span style="color:#9a93a8;font-size:12px;letter-spacing:1px;">YOUR NAME</span>
     <input id="lbHandle" maxlength="16" placeholder="enter a name" style="background:#120f1c;border:1px solid #4a4266;color:#f4ead8;border-radius:10px;padding:8px 12px;font-size:13px;letter-spacing:1px;width:150px;">
@@ -429,13 +429,17 @@ const SKINS={ ember:{name:'Ember (default)',cost:0,wick:null,glow:null,shape:'de
   prism:   {name:'Prism',       cost:1200,wick:'#dff7ff',glow:'#7fd9ff',shape:'diamond',pattern:'facet'},
   emberlord:{name:'Emberlord',  cost:1800,wick:'#ffd0a0',glow:'#ff6a2a',shape:'tall',   pattern:'shine'},
   voidcore:{name:'Voidcore',    cost:2600,wick:'#d8c8ff',glow:'#9a6aff',shape:'orb',    pattern:'stars'},
-  serpent: {name:'Serpentscale',cost:3400,wick:'#c8ffe0',glow:'#3ad6a0',shape:'default',pattern:'scales'} };
+  serpent: {name:'Serpentscale',cost:3400,wick:'#c8ffe0',glow:'#3ad6a0',shape:'default',pattern:'scales'},
+  eclipse: {name:'Eclipse',     cost:4600,wick:'#2a2440',glow:'#c0b0ff',shape:'orb',    pattern:'stars'},
+  inferno: {name:'Inferno',     cost:6000,wick:'#ff8a4a',glow:'#ff3a1a',shape:'tall',   pattern:'shine'} };
 const CHARS=[
  {id:'ember', name:'Wick',   cost:0,    wick:null,      glow:null,      desc:'The original ember.'},
  {id:'drift', name:'Drift',  cost:2000, wick:'#dff7ff', glow:'#7fd9ff', desc:'Double jump — one extra leap in mid-air'},
  {id:'ward',  name:'Ward',   cost:3000, wick:'#e7fff0', glow:'#9dffd0', desc:'Begins every run with a shield'},
  {id:'flux',  name:'Flux',   cost:4500, wick:'#ffe6ef', glow:'#ff7aa0', desc:'Combo multiplier builds 25% faster'},
  {id:'gilde', name:'Gilde',  cost:6500, wick:'#fff3c0', glow:'#ffc040', desc:'Every ember is worth +1 extra'},
+ {id:'hoard', name:'Hoard',  cost:5000, wick:'#ffe1a0', glow:'#ffb43a', desc:'Embers are always magnetised to you'},
+ {id:'wisp',  name:'Wisp',   cost:5500, wick:'#e6fbff', glow:'#9fe8ff', desc:'Floaty jumps — easier to ride the high ember arcs'},
  {id:'ash',   name:'Ashwalker', cost:0, secret:true, wick:'#4a4250', glow:'#c08a5a', desc:'SECRET — starts each run blazing in Overdrive'},
  {id:'phoenix',name:'Reborn',   cost:0, secret:true, wick:'#ffd0c0', glow:'#ff5a3a', desc:'SECRET — rises with a Second Wind every run'} ];
 let airJumpsMax=0;
@@ -443,15 +447,18 @@ function applyCharacter(){ const c=CHARS.find(x=>x.id===rec.char)||CHARS[0];
   airJumpsMax = (c.id==='drift')?1:0; p.airJumps=airJumpsMax;
   if(c.id==='ward') shield++;
   if(c.id==='flux') comboGain*=1.25;
-  if(c.id==='ash') overdriveT=T.odDur;        // Ashwalker bursts out of the gate
-  if(c.id==='phoenix') boons.revive=1; }       // Reborn carries a Second Wind
+  if(c.id==='ash') overdriveT=T.odDur*(1+(rec.upgrades.afterburn||0)*0.2);        // Ashwalker bursts out of the gate
+  if(c.id==='phoenix') boons.revive=1;         // Reborn carries a Second Wind
+  if(c.id==='wisp') boons.feather=Math.max(boons.feather,1); }   // Wisp = permanent featherfall
 /* costs scale geometrically (~×2 per level) — the first rank is cheap, mastery is a long grind */
 const UPG={ spark:{name:'Spark — head start',max:5,desc:'+40 m head start per level',cost:l=>Math.round(120*Math.pow(1.85,l))},
   magnet:{name:'Lodestone — magnet',max:4,desc:'+1.5 s magnet duration per level',cost:l=>Math.round(160*Math.pow(1.9,l))},
   shield:{name:'Emberguard — start shield',max:2,desc:'Begin each run with +1 shield',cost:l=>Math.round(700*Math.pow(2.4,l))},
   focus:{name:'Focus — multiplier',max:4,desc:'Multiplier builds faster',cost:l=>Math.round(260*Math.pow(2.0,l))},
   steady:{name:'Steadyflame — hold the flow',max:4,desc:'Your combo lasts longer before breaking',cost:l=>Math.round(300*Math.pow(2.0,l))},
-  brink:{name:'Brinkwalker — live on the edge',max:3,desc:'With no shield, the multiplier builds far faster',cost:l=>Math.round(500*Math.pow(2.3,l))} };
+  brink:{name:'Brinkwalker — live on the edge',max:3,desc:'With no shield, the multiplier builds far faster',cost:l=>Math.round(500*Math.pow(2.3,l))},
+  yield:{name:'Ember Yield — richer hauls',max:4,desc:'+8% embers earned per level',cost:l=>Math.round(300*Math.pow(2.0,l))},
+  afterburn:{name:'Afterburner — longer overdrive',max:3,desc:'Overdrive lasts +20% longer per level',cost:l=>Math.round(280*Math.pow(2.1,l))} };
 
 /* ---- state ---- */
 let state='title', aspect='bloom';
@@ -476,11 +483,11 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.fl
 /* ---- records / wallet / progression (localStorage) ---- */
 const RKEY='emberwane-run-records-v2';
 let rec={ bestDist:0,bestTime:0,bestStreak:0,total:0,dayKey:'',dayBest:0,pace:[],
-  embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0},
+  embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0,yield:0,afterburn:0},
   runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false, char:'ember', chars:['ember'], bestDepth:0, beacons:0,
-  asc:0, hearts:0, cycleEarned:0, eternal:{everburning:0,memory:0,bright:0,beaconkeeper:0}, handle:'' };
+  asc:0, hearts:0, cycleEarned:0, eternal:{everburning:0,memory:0,bright:0,beaconkeeper:0}, handle:'', bestEmbersRun:0 };
 function loadRec(){ try{ const r=JSON.parse(localStorage.getItem(RKEY)); if(r){ rec=Object.assign(rec,r);
-  rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
+  rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0,yield:0,afterburn:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
   rec.eternal=Object.assign({everburning:0,memory:0,bright:0,beaconkeeper:0},rec.eternal||{});
   if(!Array.isArray(rec.achievements))rec.achievements=[]; if(!rec.chars||!rec.chars.length)rec.chars=['ember']; if(!rec.char)rec.char='ember'; } }catch(e){} }
 function saveRec(){ try{ localStorage.setItem(RKEY,JSON.stringify(rec)); }catch(e){} }
@@ -649,7 +656,7 @@ function drawMap(){
 
 /* ---- Phase 4: Ascension (prestige rebirth) + Eternal meta-upgrades + secrets ---- */
 function ascBonus(){ return (rec.asc||0)*(0.20+(rec.eternal.bright||0)*0.05); }   // +20% embers per ascension (Bright Soul sweetens it)
-function emberMult(){ return 1+beaconBonus()+ascBonus(); }                         // total ember multiplier from beacons + ascension
+function emberMult(){ return 1+beaconBonus()+ascBonus()+(rec.upgrades.yield||0)*0.08; }   // beacons + ascension + Ember Yield upgrade
 const ETERNAL={ everburning:{name:'Everburning — reborn rich',max:4,desc:'Start each rebirth with +250 embers per level',cost:l=>1+l},
   memory:{name:'Deep Memory — retained mastery',max:3,desc:'Keep this many upgrade ranks through ascension',cost:l=>2+l*2},
   bright:{name:'Bright Soul — brighter rebirth',max:5,desc:'+5% to your ascension ember bonus per level',cost:l=>2+l},
@@ -686,19 +693,22 @@ function spawnPickups(s){
   if(s.kind==='hole'){ const n=3; for(let i=0;i<n;i++){ const f=(i+1)/(n+1); pushEmber(s.x0+(s.x1-s.x0)*f, GY-58-Math.sin(f*Math.PI)*62); } return; }
   const w=s.x1-s.x0; if(w<70) return;
   const r=TRT();
-  if(s.kind==='rest' && w>250 && r<0.42){          // ~40% of rests reward a jump
-    if(r<0.20){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
+  if(s.kind==='rest' && w>250 && r<0.52){          // ~52% of big rests reward a jump (was 40%)
+    if(r<0.22){ const n=5, cx0=s.x0+w*0.25, span=w*0.5;     // a jump arc you trace mid-air
       for(let i=0;i<n;i++){ const f=i/(n-1); pushEmber(cx0+span*f, GY-30-Math.sin(f*Math.PI)*86); } }
-    else { const cx=s.x0+w*0.5;                              // a floating high cluster — jump straight up
+    else if(r<0.40){ const cx=s.x0+w*0.5;                    // a floating high cluster — jump straight up
       pushEmber(cx-24,GY-86); pushEmber(cx,GY-104); pushEmber(cx+24,GY-86);
       pushEmber(cx-78,GY-28); pushEmber(cx+78,GY-28); }
-  } else {                                          // easy ground line (baseline)
+    else { const cx=s.x0+w*0.5;                              // BONUS arc up high — commit to a full jump
+      for(let i=0;i<7;i++){ const f=i/6; pushEmber(cx-90+180*f, GY-44-Math.sin(f*Math.PI)*96); } }
+  } else {                                          // baseline line — rests gently undulate so you tip-toe for some
+    const isRest=s.kind==='rest';
     for(let x=s.x0+34;x<s.x1-22;x+=48){
       if(s.kind==='spike'&&Math.abs(x-s.spikeX)<42)continue;
       if(s.kind==='wall'&&Math.abs(x-s.wallX)<30)continue;
       if(s.kind==='bolt'&&Math.abs(x-s.boltX)<48)continue;
       if(s.kind==='geyser'&&Math.abs(x-s.geyserX)<36)continue;
-      pushEmber(x, GY-28); }
+      pushEmber(x, isRest ? GY-30-Math.round(Math.abs(Math.sin(x*0.02))*24) : GY-28); }   // hazard rows stay low & safe
   }
 }
 function genAhead(){
@@ -773,7 +783,7 @@ function die(){ if(state!=='run')return;
   if(streak>rec.bestStreak) rec.bestStreak=streak;
   if(rec.dayKey!==today()){ rec.dayKey=today(); rec.dayBest=0; }
   if(dailyMode && dm>rec.dayBest) rec.dayBest=dm;
-  rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun); rec.bestDepth=Math.max(rec.bestDepth||0,depth);
+  rec.runs++; rec.embersEarned+=embersRun; rec.maxBiome=Math.max(rec.maxBiome,biomeIdx); rec.bestPerfects=Math.max(rec.bestPerfects,perfectsRun); rec.bestDepth=Math.max(rec.bestDepth||0,depth); rec.bestEmbersRun=Math.max(rec.bestEmbersRun||0,embersRun);
   checkAchievements(); checkUnlocks();
   saveRec(); syncButtons(); lbSubmitRun(dm); }
 
@@ -814,7 +824,7 @@ addEventListener('keyup',e=>{ if(e.code==='Space'||e.code==='ArrowUp'||e.code===
 addEventListener('blur',()=>{ p.jumpHeld=false; });
 
 /* ---- pickups update ---- */
-function collectPickups(dt,ods){ const magnet=magnetT>0||ods;
+function collectPickups(dt,ods){ const magnet=magnetT>0||ods||rec.char==='hoard';   // Hoard pulls embers passively
   const yc=p.y-16;   // collect from Wick's chest, not his feet
   for(const k of pickups){ if(k.got)continue; k.bob+=dt;
     let dx=k.wx-p.wx, dy=k.y-yc, dist=Math.hypot(dx,dy);
@@ -836,7 +846,7 @@ function collectPickups(dt,ods){ const magnet=magnetT>0||ods;
 function activatePower(kind){ sfx('power');
   if(kind==='magnet') magnetT=T.magnetDur*(1+boons.overcharge*0.6)+magnetExtra;
   else if(kind==='shield') shield++;
-  else if(kind==='overdrive') overdriveT=T.odDur*(1+boons.overcharge*0.6); }
+  else if(kind==='overdrive') overdriveT=T.odDur*(1+boons.overcharge*0.6)*(1+(rec.upgrades.afterburn||0)*0.2); }   // Afterburner extends overdrive
 function openChest(){ sfx('best'); flash=Math.max(flash,0.6); shake=Math.max(shake,10);   // high-risk reward roll
   const rng=dailyMode?TRE:Math.random; const r=rng(); let msg;
   if(r<0.45){ const j=25+Math.floor(rng()*45)+depth*4; embersRun+=j; msg='✦ '+j+' EMBERS'; }
@@ -1170,7 +1180,7 @@ function renderHistory(){
   document.getElementById('histSub').textContent='Level '+rec.level+'  ·  '+rec.runs+' runs  ·  '+rec.achievements.length+'/'+ACH.length+' achievements';
   const S=[['Best distance',rec.bestDist+' m'],['Longest survival',rec.bestTime.toFixed(1)+' s'],['Best combo','×'+rec.bestStreak],
     ['Total distance',(rec.total/1000).toFixed(2)+' km'],['Embers earned','✦ '+rec.embersEarned],['Flips (lifetime)',rec.flipsTotal],
-    ['Furthest biome',(BIOMES[Math.min(BIOMES.length-1,rec.maxBiome)]||{}).name||'—'],['Best perfects (run)',rec.bestPerfects],['Deepest reached','Depth '+(rec.bestDepth||0)],
+    ['Furthest biome',(BIOMES[Math.min(BIOMES.length-1,rec.maxBiome)]||{}).name||'—'],['Best perfects (run)',rec.bestPerfects],['Best embers (run)','✦ '+(rec.bestEmbersRun||0)],['Deepest reached','Depth '+(rec.bestDepth||0)],
     ['Total runs',rec.runs],['Today’s best',(rec.dayKey===today()?rec.dayBest:0)+' m']];
   let h='<div class="statgrid">'; for(const [k,v] of S) h+='<div><span>'+k+'</span><b>'+v+'</b></div>'; h+='</div>';
   h+='<div class="achlabel">— ACHIEVEMENTS —</div><div class="achgrid">';
@@ -1199,22 +1209,23 @@ async function lbSubmit(board,score,depthV){ if(!lbOn()||!rec.handle)return fals
 async function lbFetch(board,limit){ if(!lbOn())return null;
   try{ const r=await fetch(LB.url+'/rest/v1/scores?board=eq.'+encodeURIComponent(board)+'&order=score.desc&limit='+(limit||50)+'&select=name,score,depth',{headers:lbHeaders()});
     if(!r.ok)return null; return await r.json(); }catch(e){ return null; } }
-function lbSubmitRun(dm){ if(!lbOn()||!rec.handle)return; lbSubmit('alltime',dm,depth); if(dailyMode)lbSubmit(lbDailyBoard(),dm,depth); }   // fire-and-forget on death
+function lbSubmitRun(dm){ if(!lbOn()||!rec.handle)return; lbSubmit('alltime',dm,depth); if(dailyMode)lbSubmit(lbDailyBoard(),dm,depth); lbSubmit('embers',embersRun,depth); }   // distance + most-embers-in-a-run
 function openLeaderboard(){ lbOpenFlag=true; document.getElementById('leaderboard').style.display='flex';
   const h=document.getElementById('lbHandle'); if(h)h.value=rec.handle||'';
   document.querySelectorAll('#lbTabs .tab').forEach(function(t){ t.classList.toggle('on',t.dataset.board===lbBoard); });
   syncButtons(); renderLeaderboard(); }
 function closeLeaderboard(){ lbOpenFlag=false; document.getElementById('leaderboard').style.display='none'; syncButtons(); }
 async function renderLeaderboard(){ const body=document.getElementById('lbBody'), sub=document.getElementById('lbSub');
-  const board = lbBoard==='daily'?lbDailyBoard():'alltime';
-  sub.textContent = lbBoard==='daily' ? ('Today’s Daily Challenge · '+today()) : 'All-Time Best Distance';
+  const board = lbBoard==='daily'?lbDailyBoard() : lbBoard==='embers'?'embers' : 'alltime';
+  const fmt = lbBoard==='embers' ? (v=>'✦ '+v) : (v=>v+' m');
+  sub.textContent = lbBoard==='daily' ? ('Today’s Daily Challenge · '+today()) : lbBoard==='embers' ? 'Most Embers in a Single Run' : 'All-Time Best Distance';
   if(!lbOn()){ body.innerHTML='<div class="lbmsg">Online leaderboards aren’t connected yet.<br>Paste your Supabase URL + key into the game code to go live.</div>'; return; }
   body.innerHTML='<div class="lbmsg">Loading…</div>';
   const rows=await lbFetch(board,50);
   if(!rows){ body.innerHTML='<div class="lbmsg">Couldn’t reach the leaderboard.<br>Check your connection and try again.</div>'; return; }
   if(!rows.length){ body.innerHTML='<div class="lbmsg">No scores yet — set a name and be the first!</div>'; return; }
   let h=''; for(let i=0;i<rows.length;i++){ const row=rows[i]; const isMe=rec.handle&&row.name===rec.handle; const top=i<3;
-    h+='<div class="lbrow'+(isMe?' me':'')+(top?' top':'')+'"><div class="rk">'+(i+1)+'</div><div class="nm">'+escHtml(row.name)+'</div><div class="sc">'+row.score+' m</div></div>'; }
+    h+='<div class="lbrow'+(isMe?' me':'')+(top?' top':'')+'"><div class="rk">'+(i+1)+'</div><div class="nm">'+escHtml(row.name)+'</div><div class="sc">'+fmt(row.score)+'</div></div>'; }
   body.innerHTML=h; }
 document.getElementById('btnLb').onclick=openLeaderboard;
 document.getElementById('btnHist').onclick=openHistory;
@@ -1225,7 +1236,7 @@ document.getElementById('lbX').onclick=closeLeaderboard;
 document.querySelectorAll('#lbTabs .tab').forEach(function(t){ t.onclick=function(){ lbBoard=t.dataset.board;
   document.querySelectorAll('#lbTabs .tab').forEach(function(x){ x.classList.toggle('on',x===t); }); renderLeaderboard(); }; });
 document.getElementById('lbSave').onclick=function(){ const v=(document.getElementById('lbHandle').value||'').trim().slice(0,16); rec.handle=v; saveRec();
-  if(lbOn()&&v){ lbSubmit('alltime',rec.bestDist,rec.bestDepth||0); if(rec.dayKey===today())lbSubmit(lbDailyBoard(),rec.dayBest,rec.bestDepth||0); } renderLeaderboard(); };
+  if(lbOn()&&v){ lbSubmit('alltime',rec.bestDist,rec.bestDepth||0); lbSubmit('embers',rec.bestEmbersRun||0,rec.bestDepth||0); if(rec.dayKey===today())lbSubmit(lbDailyBoard(),rec.dayBest,rec.bestDepth||0); } renderLeaderboard(); };
 
 /* ---- first-run name prompt (so runs auto-post to the leaderboard) ---- */
 let pendingStart=null;
@@ -1235,7 +1246,7 @@ function requireName(startFn){ if(rec.handle || !lbOn()){ startFn(); return; }  
   document.getElementById('nameModal').style.display='flex'; syncButtons(); if(inp){ try{ inp.focus(); }catch(e){} } }
 function submitName(){ const v=(document.getElementById('nameInput').value||'').trim().slice(0,16); if(!v)return;   // a name is required to continue
   rec.handle=v; saveRec(); document.getElementById('nameModal').style.display='none';
-  if(lbOn()){ lbSubmit('alltime',rec.bestDist,rec.bestDepth||0); }   // seed any existing best
+  if(lbOn()){ lbSubmit('alltime',rec.bestDist,rec.bestDepth||0); lbSubmit('embers',rec.bestEmbersRun||0,rec.bestDepth||0); }   // seed existing bests
   const f=pendingStart; pendingStart=null; syncButtons(); if(f)f(); }
 document.getElementById('nameGo').onclick=submitName;
 document.getElementById('nameInput').addEventListener('keydown',function(e){ e.stopPropagation(); if(e.key==='Enter')submitName(); });
