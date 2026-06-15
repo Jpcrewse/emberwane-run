@@ -1132,7 +1132,15 @@ function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=
   const top=-34+bob, shape=sk.shape||'default';
   ctx.fillStyle=wc; wickBodyPath(shape,top); ctx.fill();
   if(!ghost){ ctx.save(); wickBodyPath(shape,top); ctx.clip(); wickPattern(sk.pattern,top,t); ctx.restore(); wickSkinFlare(sk,t); }
-  ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(0,top,6,0,Math.PI*2); ctx.fill();
+  if(ghost){ ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(0,top,6,0,Math.PI*2); ctx.fill(); }
+  else { const flowF=Math.min(1,combo/12); let flCol=gc, coreCol='#fff4cf', flH=15+flowF*11;   // HEART-FLAME: the identity, state-reactive
+    if(catchFxT>0){ flCol='#bdf5e8'; coreCol='#ffffff'; flH+=10; }                              // CATCH → flares cyan-gold
+    else if(p.invuln>0){ flCol='#bfe0ff'; coreCol='#eaf4ff'; flH=11; }                          // recently hit → gutters blue-white
+    const fw=6+flowF*2.5, flick=Math.sin(t*16)*1.6;
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle=flCol; ctx.beginPath(); ctx.moveTo(0,top-flH+flick); ctx.quadraticCurveTo(fw,top-flH*0.4,fw*0.55,top+3); ctx.quadraticCurveTo(0,top+6,-fw*0.55,top+3); ctx.quadraticCurveTo(-fw,top-flH*0.4,0,top-flH+flick); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=coreCol; ctx.beginPath(); ctx.moveTo(0,top-flH*0.55+flick*0.5); ctx.quadraticCurveTo(fw*0.4,top-flH*0.18,0,top+3); ctx.quadraticCurveTo(-fw*0.4,top-flH*0.18,0,top-flH*0.55+flick*0.5); ctx.closePath(); ctx.fill();
+    ctx.restore(); }
   ctx.strokeStyle=wc; ctx.lineWidth=3; ctx.lineCap='round'; const ph=state==='run'?t*8:0;
   ctx.beginPath(); ctx.moveTo(-3,-6+bob); ctx.lineTo(-3+Math.cos(ph)*6,Math.abs(Math.sin(ph))*-2);
   ctx.moveTo(3,-6+bob); ctx.lineTo(3+Math.cos(ph+Math.PI)*6,Math.abs(Math.sin(ph+Math.PI))*-2); ctx.stroke();
@@ -1207,6 +1215,13 @@ function drawMissions(cx,cy){ ctx.textAlign='center'; ctx.fillStyle='#9a93a8'; c
     ctx.fillStyle=m.done?'#9dffd0':'#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText((m.done?'✓ ':'')+txt+'   '+Math.min(m.prog,m.target)+'/'+m.target,cx,y);
     ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fillRect(cx-110,y+5,220,4); ctx.fillStyle=m.done?'#9dffd0':'#ffd9a0'; ctx.fillRect(cx-110,y+5,220*pr,4); y+=30; } }
 function drawTitle(){ ctx.textAlign='center';
+  { const fx=VW/2, base=80, fh=44, fl=Math.sin(performance.now()*0.006)*2;   // brand HEART-FLAME mark above the wordmark
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const gg=ctx.createRadialGradient(fx,base-18,2,fx,base-18,42); gg.addColorStop(0,'rgba(255,180,90,0.5)'); gg.addColorStop(1,'rgba(255,120,40,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(fx,base-18,42,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff9a3a'; ctx.beginPath(); ctx.moveTo(fx,base-fh+fl); ctx.quadraticCurveTo(fx+13,base-fh*0.4,fx+8,base+4); ctx.quadraticCurveTo(fx,base+8,fx-8,base+4); ctx.quadraticCurveTo(fx-13,base-fh*0.4,fx,base-fh+fl); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ffe2a0'; ctx.beginPath(); ctx.moveTo(fx,base-fh*0.55); ctx.quadraticCurveTo(fx+6,base-fh*0.18,fx,base+4); ctx.quadraticCurveTo(fx-6,base-fh*0.18,fx,base-fh*0.55); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#fff7e0'; ctx.beginPath(); ctx.moveTo(fx,base-fh*0.3); ctx.quadraticCurveTo(fx+3,base-fh*0.1,fx,base+3); ctx.quadraticCurveTo(fx-3,base-fh*0.1,fx,base-fh*0.3); ctx.closePath(); ctx.fill();
+    ctx.restore(); }
   ctx.fillStyle='#ffb070'; ctx.font='bold 60px Trebuchet MS'; ctx.shadowColor='#ff7a2a'; ctx.shadowBlur=24; ctx.fillText('EMBER RUN',VW/2,118); ctx.shadowBlur=0;
   ctx.fillStyle='#cfc7d6'; ctx.font='15px Trebuchet MS'; ctx.fillText('Flip the world. Jump the holes. Go far.',VW/2,150);
   ctx.fillStyle='#9dffd0'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN',VW/2,190);
@@ -1262,6 +1277,14 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   if(state==='run')drawPaceGhost(IN); drawPickups(); drawParticles();
   if(state==='run'){ wickTrail.unshift(p.y); if(wickTrail.length>7)wickTrail.pop();   // afterimage speed trail
     const gc=wickGlow(P), spd=Math.min(1,(runSpeed-T.baseSpeed)/Math.max(1,T.maxAdd));
+    const conv=Math.min(1, spd*0.7 + Math.min(1,combo/12)*0.55);                       // FIRE RIBBON: length+brightness = conviction (speed + flow)
+    if(wickTrail.length>3 && conv>0.06){ const step=4+spd*6, fy=-30;
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle=gc; ctx.globalAlpha=0.3*conv; ctx.lineWidth=7*conv+2;
+      ctx.beginPath(); ctx.moveTo(ANCHOR,p.y+fy); for(let i=1;i<wickTrail.length;i++) ctx.lineTo(ANCHOR-i*step, wickTrail[i]+fy); ctx.stroke();
+      ctx.strokeStyle='rgba(255,244,207,'+(0.55*conv)+')'; ctx.globalAlpha=1; ctx.lineWidth=2.4;
+      ctx.beginPath(); ctx.moveTo(ANCHOR,p.y+fy); for(let i=1;i<wickTrail.length;i++) ctx.lineTo(ANCHOR-i*step, wickTrail[i]+fy); ctx.stroke();
+      ctx.globalAlpha=1; ctx.restore(); }
     for(let i=wickTrail.length-1;i>=2;i--){ const a=0.15*(1-i/8)*(0.35+0.65*spd); if(a>0.012) drawWickGhost(ANCHOR-i*(4+spd*6), wickTrail[i], gc, a); } }
   if(!(p.invuln>0 && Math.floor(p.invuln*22)%2)) drawWick(ANCHOR,p.y,P,false);   // blink while invulnerable
   ctx.restore();
@@ -1327,7 +1350,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15g';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15h';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
