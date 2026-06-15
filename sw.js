@@ -1,7 +1,7 @@
 /* Ember Run service worker — offline app shell.
    Network-first for the game so updates land immediately when online,
    cache fallback so it still plays with no connection. */
-const CACHE = 'emberrun-v12';
+const CACHE = 'emberrun-v13';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-512.png', './icon.svg'];
 
 self.addEventListener('install', e => {
