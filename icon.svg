@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ember Run">
+  <rect width="512" height="512" rx="112" fill="#07060d"/>
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="60%" r="58%">
+      <stop offset="0" stop-color="#ff8a2a" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="300" r="158" fill="url(#halo)"/>
+  <path d="M256 92 C 332 200 358 252 358 314 a102 102 0 0 1 -204 0 C 154 252 180 200 256 92 Z" fill="#ff9a3a"/>
+  <path d="M256 186 C 302 250 314 282 314 320 a58 58 0 0 1 -116 0 C 198 284 212 250 256 186 Z" fill="#ffe2a0"/>
+  <path d="M256 250 C 284 292 292 308 292 332 a36 36 0 0 1 -72 0 C 220 310 230 292 256 250 Z" fill="#fff7e0"/>
+  <circle cx="256" cy="378" r="15" fill="#79e6d6"/>
+</svg>
