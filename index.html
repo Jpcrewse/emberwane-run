@@ -539,13 +539,26 @@ const RKEY='emberwane-run-records-v2';
 let rec={ bestDist:0,bestTime:0,bestStreak:0,total:0,dayKey:'',dayBest:0,pace:[],
   embers:0, level:1, missions:[], skin:'ember', skins:['ember'], upgrades:{spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0,yield:0,afterburn:0},
   runs:0, flipsTotal:0, maxBiome:0, bestPerfects:0, embersEarned:0, achievements:[], muted:false, char:'ember', chars:['ember'], bestDepth:0, beacons:0,
-  asc:0, hearts:0, cycleEarned:0, eternal:{everburning:0,memory:0,bright:0,beaconkeeper:0}, handle:'', bestEmbersRun:0, tutorialSeen:false };
+  asc:0, hearts:0, cycleEarned:0, eternal:{everburning:0,memory:0,bright:0,beaconkeeper:0}, handle:'', bestEmbersRun:0, tutorialSeen:false,
+  dayStreak:0, dayStreakDay:'', dayStreakBest:0, freeShields:0 };   // DAILY STREAK + weekly free shields
 function loadRec(){ try{ const r=JSON.parse(localStorage.getItem(RKEY)); if(r){ rec=Object.assign(rec,r);
   rec.upgrades=Object.assign({spark:0,magnet:0,shield:0,focus:0,steady:0,brink:0,yield:0,afterburn:0},rec.upgrades||{}); if(!rec.skins||!rec.skins.length)rec.skins=['ember'];
   rec.eternal=Object.assign({everburning:0,memory:0,bright:0,beaconkeeper:0},rec.eternal||{});
   if(!Array.isArray(rec.achievements))rec.achievements=[]; if(!rec.chars||!rec.chars.length)rec.chars=['ember']; if(!rec.char)rec.char='ember'; } }catch(e){} }
 function saveRec(){ try{ localStorage.setItem(RKEY,JSON.stringify(rec)); }catch(e){} }
 function today(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function yday(){ const d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function advanceDailyStreak(){ const t=today(); if(rec.dayStreakDay===t) return;                 // count the streak once per calendar day, on playing the Daily
+  rec.dayStreak = (rec.dayStreakDay===yday()) ? (rec.dayStreak||0)+1 : 1;                          // continue if you played yesterday, else start fresh (no timer pressure)
+  rec.dayStreakDay=t; if(rec.dayStreak>(rec.dayStreakBest||0)) rec.dayStreakBest=rec.dayStreak;
+  const reward = 30 + Math.min(rec.dayStreak,7)*10;                                                // small daily ember reward (40..100), caps at day 7
+  rec.embers += reward;
+  let earnedShield=false;
+  if(rec.dayStreak % 7 === 0){ rec.freeShields=Math.min((rec.freeShields||0)+1,3); earnedShield=true; }   // EARN (not buy) a free shield every 7 days, capped at 3
+  saveRec();
+  areaCard={ name:'🔥 DAY '+rec.dayStreak+' STREAK   ·   +'+reward+' ✦'+(earnedShield?'   ·   🛡 WEEKLY SHIELD!':''), t:0, dur:2.8 };
+  pushFloat('+'+reward+' DAILY BONUS','#ffd9a0',20);
+  track('daily_streak',{streak:rec.dayStreak,reward:reward,shield:earnedShield?1:0}); }
 loadRec(); muted=!!rec.muted;
 
 /* ---- missions ---- */
@@ -810,6 +823,8 @@ function startRun(){
   eventT=0; eventCd=16; eventKind=''; flipY=1; flipTarget=1; surgeMul=1; frenzyAcc=0; depth=0; deathCause='';
   resetBoons(); drafting=false; nextDraftM=250; document.getElementById('draft').style.display='none';
   applyUpgrades(); applyCharacter();
+  if((rec.freeShields||0)>0){ rec.freeShields--; shield=Math.max(shield,1); saveRec(); pushFloat('🛡 FREE SHIELD ACTIVE','#9dffd0',20); }   // weekly streak reward: a free continue, auto-applied to this run
+  if(dailyMode) advanceDailyStreak();
   p.wx=ANCHOR; p.y=GY; p.vy=0; p.onGround=true; p.coyote=0; p.jumpBuf=0; p.jumpHeld=false; p.cutDone=true; p.run=0; p.invuln=0;
   segs=[]; genX=0; lastAspect='bloom'; needRest=false; sincePower=0; sinceChest=0; pickups=[]; particles=[]; wickTrail.length=0;
   pushSeg(1200,true,true,{kind:'rest'}); genAhead(); setDrone();
@@ -1265,6 +1280,10 @@ function drawTitle(){ ctx.textAlign='center';
   ctx.fillStyle='#cfc7d6'; ctx.font='15px Trebuchet MS'; ctx.fillText('Flip the world. Jump the holes. Go far.',VW/2,150);
   ctx.fillStyle='#9dffd0'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN',VW/2,190);
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('LEFT = FLIP   ·   RIGHT = JUMP (hold = higher)',VW/2,214);
+  { const t=today(), st=rec.dayStreak||0, fs=rec.freeShields||0, played=(rec.dayStreakDay===t), keep=(rec.dayStreakDay===yday());
+    let txt = played ? ('🔥 '+st+'-DAY STREAK — played today') : (keep&&st>0) ? ('🔥 '+st+'-DAY STREAK — play the Daily to keep it') : 'Play the Daily to start a streak';
+    if(fs) txt += '     🛡 ×'+fs+' free';
+    ctx.fillStyle='#ff9a4d'; ctx.font='13px Trebuchet MS'; ctx.fillText(txt,VW/2,226); }
   ctx.fillStyle='#ffcf6a'; ctx.font='14px Trebuchet MS'; ctx.fillText('✦ '+rec.embers+' embers'+(rec.bestDist?'    ·    Best '+rec.bestDist+' m':''),VW/2,242);
   if(rec.asc>0){ ctx.fillStyle='#ff9a6a'; ctx.font='bold 14px Trebuchet MS'; ctx.fillText('✦ ASCENSION '+rec.asc+'   ·   ❤ '+(rec.hearts||0)+' emberhearts   ·   +'+Math.round(ascBonus()*100)+'% embers',VW/2,263); }
   drawMissions(VW/2, rec.asc>0?292:278);
@@ -1419,7 +1438,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15n';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15o';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
