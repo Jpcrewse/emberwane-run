@@ -520,7 +520,8 @@ const CATCH_ON=true;                                // ── THE CATCH experime
 let catchCount=0, flipAirN=0, flipAirClrSum=0;      // per-run: catches + airborne-flip commit-clearance (the "trust signature")
 let catchFxT=0, catchFxPerfect=false; let deadRank=null, deadRankBoard='', deadPaceLead=0;
 let perfectCatches=0, heroScore=0, heroPending=0, heroCv=null, heroCtx=null, clipWorthy=false, clipLabel='', clipDist=0, clipURL='', clipBlob=null;   // AUTO-CLIP: moment scoring + hero freeze-frame + share card
-let heat=0, heatChain=0, heatChainBest=0, heatGrace=0, heatMaxRun=0, heatBreaks=0, heatTime=0, heatWasHot=false;   // HEAT CHAIN: consecutive-excellence escalation               // Communion catch FX: timer + whether this catch was a clutch (full fuse)
+let heat=0, heatChain=0, heatChainBest=0, heatGrace=0, heatMaxRun=0, heatBreaks=0, heatTime=0, heatWasHot=false;   // HEAT CHAIN: consecutive-excellence escalation
+let tutorialRun=false, tutStep=0;   // STAGE 2: playable, death-proof first-run tutorial               // Communion catch FX: timer + whether this catch was a clutch (full fuse)
 let paused=false, perfectsRun=0, newAch=[], historyOpen=false;
 let eventT=0, eventCd=18, eventKind='', flipY=1, flipTarget=1, surgeMul=1, frenzyAcc=0, depth=0;   // dynamic events + endless DEPTH escalation
 const EVENT_DUR={invert:9,frenzy:6,surge:8}, EVENT_CD=19;
@@ -848,6 +849,7 @@ function shieldSave(){ const lost=shield; shield=0; p.invuln=0.5*(1+boons.swift*
   respawnSafe(); p.vy=-260;
   for(let i=0;i<24;i++)particles.push({x:ANCHOR,y:GY-16,vx:rnd(-180,180),vy:rnd(-240,-20),life:.6,max:.6,r:rnd(2,3),c:'#bdf5e8',g:300}); }
 function die(){ if(state!=='run')return;
+  if(tutorialRun){ p.invuln=Math.max(p.invuln,0.9); if(p.y>GY)p.y=GY; p.vy=Math.min(0,p.vy); p.onGround=true; combo=0; flowT=0; heat=0; flash=Math.max(flash,0.35); deathCause=''; return; }   // STAGE 2: tutorial is death-proof — recover, never die
   if(boons.revive>0){ boons.revive--; revivePlayer(); return; }   // Second Wind boon — survive a fatal hit
   state='dead'; deathT=0; shake=14; sfx('die'); combo=0; flowT=0;
   const Pg=biome()[aspect];
@@ -881,13 +883,15 @@ function die(){ if(state!=='run')return;
 function flip(){ if(state!=='run')return;
   const before=solidAt(p.wx); aspect=aspect==='bloom'?'cinder':'bloom'; const after=solidAt(p.wx);
   flash=Math.max(flash,0.34); flipPunch=1; shake=Math.max(shake,3); setDrone(); sfx('flip'); mprog('flips',1); rec.flipsTotal++;   // the flip is now an EVENT: zoom-snap + punch
+  if(tutorialRun&&tutStep===0){ tutStep=1; areaCard={name:'TAP THE RIGHT SIDE — JUMP a hole ▶',t:0,dur:3.2}; }
   const Pg=biome()[aspect];
   for(let i=0;i<16;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-110,110),vy:rnd(-130,50),life:.4,max:.4,r:rnd(1,3),c:Pg.glow,g:120});
   if(CATCH_ON){ const clr=GY-p.y;                                                   // ── THE CATCH ──
     if(!p.onGround&&p.vy>0){ flipAirN++; flipAirClrSum+=Math.max(0,clr);            // trust signature: how LATE the player commits airborne flips
       if(!before&&after){ catchCount++; hitstop=0.06; sfx('catch'); flash=Math.max(flash,0.32);   // the world rises to HOLD a falling player
         catchFxT=0.55; catchFxPerfect=(clr<8);                                                    // COMMUNION: gold+cyan bloom rises to the foot; clutch = full fuse
-        if(clr<8)perfectCatches++; momentHit((clr<8?60:34)+depth*3+catchCount*4); heatAdd(clr<8?0.28:0.18);                  // AUTO-CLIP: a catch is a hero-worthy moment (perfect = highest)
+        if(clr<8)perfectCatches++; momentHit((clr<8?60:34)+depth*3+catchCount*4); heatAdd(clr<8?0.28:0.18);
+        if(tutorialRun&&tutStep<3){ tutStep=3; areaCard={name:'✦ THE CATCH — flip late and reality rises to hold you',t:0,dur:3.8}; }                  // AUTO-CLIP: a catch is a hero-worthy moment (perfect = highest)
         for(let i=0;i<12;i++)particles.push({x:ANCHOR,y:GY,vx:rnd(-90,90),vy:rnd(-160,-30),life:.55,max:.55,r:rnd(1.5,3),c:i%2?'#79e6d6':'#ffce6a',g:150});   // gold/cyan motes rising
         if(!rec.firstCatchSeen){ rec.firstCatchSeen=true; saveRec(); pushFloat('✦ THE WORLD HELD YOU ✦','#bdf5e8',26); flash=Math.max(flash,0.55); areaCard={name:'THE CATCH — flip late, and reality catches you',t:0,dur:2.6}; }   // teach the emotional core, once ever
         track('catch',{clr:Math.round(clr),m:Math.floor(meters),t:+runTime.toFixed(1),n:catchCount,depth:depth}); } } }
@@ -899,11 +903,11 @@ function flip(){ if(state!=='run')return;
       for(let i=0;i<8;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-160,160),vy:rnd(-120,120),life:.5,max:.5,r:rnd(1,3),c:'#cfe8ff',g:0}); }
     if(boons.doubletake){ combo+=boons.doubletake; flowT=flowMax; pushFloat('+'+boons.doubletake+' COMBO','#ffd9a0',16); }   // Doubletake rewards the clutch Turn
     for(let i=0;i<10;i++)particles.push({x:ANCHOR,y:p.y-16,vx:rnd(-140,140),vy:rnd(-180,-20),life:.5,max:.5,r:rnd(1,3),c:'#fff',g:60}); } }
-function jumpPress(){ if(state!=='run')return; p.jumpBuf=T.buffer; p.jumpHeld=true; }
+function jumpPress(){ if(state!=='run')return; p.jumpBuf=T.buffer; p.jumpHeld=true; if(tutorialRun&&tutStep===1){ tutStep=2; areaCard={name:'A glowing ⟳ pit is solid in the OTHER world — FLIP onto it',t:0,dur:3.8}; } }
 function jumpRelease(){ p.jumpHeld=false; }
 let pendingDaily=false;
 function tutOpen(){ return document.getElementById('tutorial').style.display==='flex'; }
-function beginRun(daily){ if(!rec.tutorialSeen){ pendingDaily=daily; document.getElementById('tutorial').style.display='flex'; syncButtons(); return; }   // one-time tutorial first
+function beginRun(daily){ if(!rec.tutorialSeen){ dailyMode=false; tutorialRun=true; tutStep=0; startRun(); areaCard={name:'◀ TAP THE LEFT SIDE — FLIP the world',t:0,dur:3.2}; return; }   // first time: a playable, death-proof lesson (replaces the static card)
   requireName(function(){ dailyMode=daily; startRun(); }); }
 function tapStart(){ initAudio(); if(state==='title'){ beginRun(false); } else if(state==='dead'&&deathT>=0.4){ startRun(); } }   // tap-again keeps the same mode
 function startDaily(){ initAudio(); beginRun(true); }
@@ -1052,6 +1056,7 @@ function update(dt){
   const cg = comboGain*((shield===0 && rec.upgrades.brink>0)?1+rec.upgrades.brink*0.22:1);   // Brinkwalker: faster multiplier with no safety net
   mult = Math.min(T.multMax, 1 + combo*cg);
   meters += (runSpeed*dt/PPM)*mult*(1+heat*0.15);   // HEAT: a gentle score bonus while hot (score only — the world does NOT scroll faster)
+  if(tutorialRun && meters>=350){ tutorialRun=false; rec.tutorialSeen=true; saveRec(); track('tutorial_complete',{played:1}); areaCard={name:'You’ve got it — survive far, then try the 🗓 DAILY for a streak',t:0,dur:4.2}; }   // STAGE 2: tutorial ends, normal rules resume
   for(const f of floats){ f.y+=f.vy*dt; f.vy*=0.94; f.life-=dt; } floats=floats.filter(f=>f.life>0);
   mset('dist',Math.floor(meters));
   if(!ods && p.y>DEATH_Y){ if(shield>0) shieldSave(); else { deathCause='fall'; die(); } }
@@ -1449,7 +1454,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15q';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15r';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
