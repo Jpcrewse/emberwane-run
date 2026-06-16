@@ -572,6 +572,8 @@ function advanceDailyStreak(){ const t=today(); if(rec.dayStreakDay===t) return;
   pushFloat('+'+reward+' DAILY BONUS','#ffd9a0',20);
   track('daily_streak',{streak:rec.dayStreak,reward:reward,shield:earnedShield?1:0}); }
 loadRec(); muted=!!rec.muted;
+const grainCv=document.createElement('canvas'); grainCv.width=grainCv.height=160;   // PREMIUM: precomputed film-grain tile (built once; one drawImage/frame at draw time)
+{ const gx=grainCv.getContext('2d'), id=gx.createImageData(160,160), d=id.data; for(let i=0;i<d.length;i+=4){ const v=100+(Math.random()*56|0); d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; } gx.putImageData(id,0,0); }
 
 /* ---- missions ---- */
 const MTYPES=[
@@ -1246,7 +1248,11 @@ function drawWick(x,y,P,ghost){ const sk=SKINS[rec.skin]||SKINS.ember; const ch=
     if(shield>=3){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba('+tier+',0.22)'; ctx.lineWidth=1.5;   // pulse halo on a strong stack
       ctx.beginPath(); ctx.arc(0,-16, 23+(n-1)*4.5+3+Math.sin(p.run*6)*1.6, 0,Math.PI*2); ctx.stroke(); ctx.restore(); } }
   ctx.restore(); }
-function drawParticles(){ for(const pa of particles){ ctx.globalAlpha=Math.max(0,pa.life/pa.max); ctx.fillStyle=pa.c; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1; }
+function drawParticles(){ if(!particles.length)return; ctx.save(); ctx.globalCompositeOperation='lighter';   // PREMIUM: soft additive glow (halo + bright core) instead of flat dots
+  for(const pa of particles){ const a=Math.max(0,pa.life/pa.max); if(a<=0)continue; ctx.fillStyle=pa.c;
+    ctx.globalAlpha=a*0.32; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r*2.6,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=a; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r,0,Math.PI*2); ctx.fill(); }
+  ctx.globalAlpha=1; ctx.restore(); }
 function drawFloats(){ ctx.textAlign='center'; for(const f of floats){ ctx.globalAlpha=Math.max(0,Math.min(1,f.life/f.max)); ctx.fillStyle=f.c; ctx.font='bold '+f.size+'px Trebuchet MS'; ctx.shadowColor='#000'; ctx.shadowBlur=6;
   const sy=VH/2+flipY*(f.y-VH/2); ctx.fillText(f.txt,f.x,sy); ctx.shadowBlur=0; } ctx.globalAlpha=1; }   // map through the inversion flip so text stays upright
 function drawPaceGhost(IN){ const pd=paceDistAt(runTime); if(pd==null)return; const gx=ANCHOR+(pd-runDist); if(gx<-30||gx>VW+30)return;
@@ -1300,8 +1306,9 @@ function drawMissions(cx,cy){ ctx.textAlign='center'; ctx.fillStyle='#9a93a8'; c
     ctx.fillStyle=m.done?'#9dffd0':'#cfc7d6'; ctx.font='13px Trebuchet MS'; ctx.fillText((m.done?'✓ ':'')+txt+'   '+Math.min(m.prog,m.target)+'/'+m.target,cx,y);
     ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fillRect(cx-110,y+5,220,4); ctx.fillStyle=m.done?'#9dffd0':'#ffd9a0'; ctx.fillRect(cx-110,y+5,220*pr,4); y+=30; } }
 function drawTitle(){ ctx.textAlign='center';
+  { const sg=ctx.createRadialGradient(VW/2,150,40,VW/2,150,Math.max(VW,VH)*0.62); sg.addColorStop(0,'rgba(6,5,12,0.6)'); sg.addColorStop(1,'rgba(6,5,12,0)'); ctx.fillStyle=sg; ctx.fillRect(0,0,VW,VH); }   // PREMIUM: soft scrim so the title cluster reads cleanly over the living world
   flameMark(VW/2, 80, 44);   // brand flame above the wordmark (shared mark)
-  ctx.fillStyle='#ffb070'; ctx.font='bold 60px Trebuchet MS'; ctx.shadowColor='#ff7a2a'; ctx.shadowBlur=24; ctx.fillText('EMBER RUN',VW/2,118); ctx.shadowBlur=0;
+  ctx.fillStyle='#ffb070'; ctx.font='bold 60px Trebuchet MS'; ctx.shadowColor='#ff7a2a'; ctx.shadowBlur=22+Math.sin(performance.now()*0.003)*9; ctx.fillText('EMBER RUN',VW/2,118); ctx.shadowBlur=0;   // PREMIUM: wordmark glow breathes
   ctx.fillStyle='#cfc7d6'; ctx.font='15px Trebuchet MS'; ctx.fillText('Flip the world. Jump the holes. Go far.',VW/2,150);
   ctx.fillStyle='#9dffd0'; ctx.font='bold 20px Trebuchet MS'; ctx.fillText('TAP TO RUN',VW/2,190);
   ctx.fillStyle='#9a93a8'; ctx.font='12px Trebuchet MS'; ctx.fillText('LEFT = FLIP   ·   RIGHT = JUMP (hold = higher)',VW/2,214);
@@ -1416,6 +1423,7 @@ function draw(){ if(state==='map'){ drawMap(); return; }
   if(Math.abs(flipY)<0.55){ const fa=Math.min(0.92,(0.55-Math.abs(flipY))*2.3); ctx.fillStyle='rgba(245,250,255,'+fa+')'; ctx.fillRect(0,0,VW,VH); }   // cover the inversion collapse so there's no blank frame
   if(state==='run'){ const loop=Math.floor(trueM/(T.biomeM*LEVELS.length)); const tintA=Math.min(0.46, depth*0.011 + loop*0.1);   // ominous tint grows with DEPTH (and each 50-level lap)
     if(tintA>0.015){ ctx.fillStyle='rgba(85,0,30,'+tintA.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); } }
+  { const go=(performance.now()*0.06)%80; ctx.save(); ctx.globalCompositeOperation='soft-light'; ctx.globalAlpha=0.5; ctx.drawImage(grainCv,-go,-(go*0.7),VW+90,VH+90); ctx.globalAlpha=1; ctx.restore(); }   // PREMIUM: subtle animated film grain over the scene (HUD/title/dead draw on top, stay crisp)
   if(state==='run'){ drawHUD(); drawAreaCard(); }
   if(state==='title') drawTitle();
   if(state==='dead') drawDead();
@@ -1464,7 +1472,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15s';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15t';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
