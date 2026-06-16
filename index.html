@@ -227,7 +227,7 @@ window.addEventListener('error', function(ev){
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
 const LEAN={ map:false, boons:false, missions:false, weeklyShield:false, shopUpgrades:false, shopEternal:false, overdrive:false, hueLevels:false, surgeFrenzy:false, secretChars:false };   // EmberWane 1.0 — Minimum EmberWane: gate tier-4 bloat (reversible; no save data deleted)
 let VW=960; const VH=540, GY=384, ANCHOR=290, DEATH_Y=GY+250, PPM=64;   // VW is responsive: matches the screen's aspect ratio so it fills full width
-const T={ baseSpeed:300, maxAdd:380, rampPer:42, G:2100, jumpV:735, cut:0.45, coyote:0.09, buffer:0.12,
+const T={ baseSpeed:300, maxAdd:400, rampPer:42, G:2100, jumpV:735, cut:0.45, coyote:0.09, buffer:0.12,
   multMax:6, multDecay:0.34, multGain:0.5, magnetDur:6, odDur:4.5, odSpeed:1.7, biomeM:250 };
 
 /* ---- audio ---- */
@@ -1015,7 +1015,7 @@ function update(dt){
   runTime+=dt;
   trueM=runDist/PPM; const nd=Math.floor(trueM/500);
   if(nd>depth){ depth=nd; depthTierUp(); }                                            // a new DEPTH tier every 500m — escalation never caps
-  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+Math.min(560,depth*32))*(ods?T.odSpeed:1)*surgeMul*(flowSurge>0?1+0.06*(flowSurge/0.6):1);   // perfect-flip surge: gentle +6% that eases out (no jarring yank)
+  runSpeed=(T.baseSpeed+Math.min(T.maxAdd,runDist/T.rampPer)+depth*38)*(ods?T.odSpeed:1)*surgeMul*(flowSurge>0?1+0.06*(flowSurge/0.6):1);   // depth speed now UNCAPPED + steeper (+38/tier): deep runs keep advancing, no plateau
   runDist+=runSpeed*dt; p.wx=runDist+ANCHOR; p.run+=dt*runSpeed*0.02;
   trueM=runDist/PPM; const nb=Math.floor(trueM/T.biomeM)%LEVELS.length;               // 50 levels, then loop (rising corruption each lap)
   if(LEAN.boons && trueM>=nextDraftM){ nextDraftM+=350; spawnBoonOrbs(); }   // boon draft disabled (lean)
@@ -1472,7 +1472,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15t';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15u';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
