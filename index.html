@@ -80,6 +80,10 @@
   #clipPanel .cbtn{flex:1;background:transparent;border:1px solid rgba(255,255,255,.28);color:#f4ead8;padding:8px 4px;border-radius:10px;letter-spacing:1px;font-size:12px;cursor:pointer;}
   #clipPanel .cbtn.go{background:#ffce6a;color:#221705;border-color:#ffce6a;font-weight:bold;flex:2;}
   #clipPanel .cbtn.x{flex:0 0 40px;}
+  #installNudge{position:fixed;z-index:23;left:50%;bottom:max(78px,calc(env(safe-area-inset-bottom) + 78px));transform:translateX(-50%);display:none;align-items:center;gap:8px;background:rgba(10,8,16,0.95);border:1px solid rgba(255,206,106,0.4);border-radius:14px;padding:8px 10px;box-shadow:0 8px 30px rgba(0,0,0,.55);max-width:92vw;}
+  #installNudge span{color:#f4ead8;font-size:12px;}
+  #installNudge button{background:transparent;border:1px solid rgba(255,255,255,.3);color:#f4ead8;padding:6px 10px;border-radius:9px;font-size:12px;letter-spacing:1px;cursor:pointer;}
+  #installNudge #instYes{background:#ffce6a;color:#221705;border-color:#ffce6a;font-weight:bold;}
   .mbtns{display:flex;flex-direction:column;gap:13px;width:270px;max-width:80vw;margin-top:8px;}
   .mbtn{background:#1a1426;border:1.5px solid #4a4266;color:#f4ead8;border-radius:26px;padding:14px;font-size:15px;letter-spacing:2px;cursor:pointer;font-weight:bold;}
   .mbtn.go{border-color:#7fd9c9;color:#bdf5e8;}
@@ -137,6 +141,11 @@
     <button id="clipSave" class="cbtn">SAVE</button>
     <button id="clipDismiss" class="cbtn x">✕</button>
   </div>
+</div>
+<div id="installNudge">
+  <span>📲 Add EmberWane to your home screen</span>
+  <button id="instYes">INSTALL</button>
+  <button id="instNo">✕</button>
 </div>
 <div id="shop">
   <button class="ovx" id="shopX">✕</button>
@@ -907,7 +916,8 @@ function jumpPress(){ if(state!=='run')return; p.jumpBuf=T.buffer; p.jumpHeld=tr
 function jumpRelease(){ p.jumpHeld=false; }
 let pendingDaily=false;
 function tutOpen(){ return document.getElementById('tutorial').style.display==='flex'; }
-function beginRun(daily){ if(!rec.tutorialSeen){ dailyMode=false; tutorialRun=true; tutStep=0; startRun(); areaCard={name:'◀ TAP THE LEFT SIDE — FLIP the world',t:0,dur:3.2}; return; }   // first time: a playable, death-proof lesson (replaces the static card)
+function beginRun(daily){ { const _in=document.getElementById('installNudge'); if(_in)_in.style.display='none'; }
+  if(!rec.tutorialSeen){ dailyMode=false; tutorialRun=true; tutStep=0; startRun(); areaCard={name:'◀ TAP THE LEFT SIDE — FLIP the world',t:0,dur:3.2}; return; }   // first time: a playable, death-proof lesson (replaces the static card)
   requireName(function(){ dailyMode=daily; startRun(); }); }
 function tapStart(){ initAudio(); if(state==='title'){ beginRun(false); } else if(state==='dead'&&deathT>=0.4){ startRun(); } }   // tap-again keeps the same mode
 function startDaily(){ initAudio(); beginRun(true); }
@@ -1426,7 +1436,7 @@ function closeShop(){ shopOpen=false; document.getElementById('shop').style.disp
 function pauseGame(){ if(state!=='run')return; paused=true; document.getElementById('pmMute').textContent='SOUND: '+(muted?'OFF':'ON'); document.getElementById('pauseMenu').style.display='flex'; syncButtons(); }
 function resumeGame(){ paused=false; document.getElementById('pauseMenu').style.display='none'; last=performance.now()/1000; syncButtons(); }
 function toTitle(){ state='title'; paused=false; dailyMode=false; drafting=false; ascPending=false; resetBoons(); document.getElementById('draft').style.display='none'; document.getElementById('pauseMenu').style.display='none';
-  segs=[]; pickups=[]; particles=[]; floats=[]; biomeIdx=0; p.y=GY; p.wx=ANCHOR; p.invuln=0; combo=0; flowT=0; syncButtons(); }
+  segs=[]; pickups=[]; particles=[]; floats=[]; biomeIdx=0; p.y=GY; p.wx=ANCHOR; p.invuln=0; combo=0; flowT=0; syncButtons(); if(typeof maybeInstallNudge==='function')maybeInstallNudge(); }
 function openHistory(){ historyOpen=true; renderHistory(); document.getElementById('history').style.display='flex'; syncButtons(); }
 function closeHistory(){ historyOpen=false; document.getElementById('history').style.display='none'; syncButtons(); }
 function renderHistory(){
@@ -1454,7 +1464,7 @@ document.getElementById('btnMap').onclick=openMap;
 const LB={ url:'https://vvlnzzxkdqkabsyopdrm.supabase.co', key:'sb_publishable_-2vw1zgJW7CRNfbIiko9oQ_2tFkDOKe' };   // Supabase project URL (no /rest/v1) + publishable key
 
 /* ---- minimum-viable analytics: anonymous, per-event, Supabase (reuses LB creds) ---- */
-const APP_VER='2026-06-15r';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
+const APP_VER='2026-06-15s';   // BUMP THIS EVERY DEPLOY so trends can be segmented by build
 function erUID(){ try{ let u=localStorage.getItem('er_uid');
   if(!u){ u=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():('u'+Date.now()+'-'+Math.floor(Math.random()*1e9)); localStorage.setItem('er_uid',u); }
   return u; }catch(e){ return 'anon'; } }
@@ -1469,7 +1479,8 @@ function track(name,props){ try{ if(!LB.url||!LB.key)return;
   let inst=+localStorage.getItem('er_install')||0; if(!inst){ inst=now; localStorage.setItem('er_install',''+inst); }
   const sc=(+localStorage.getItem('er_sessions')||0)+1; localStorage.setItem('er_sessions',''+sc); ER_FIRST=(sc===1);
   track('app_open',{ first:ER_FIRST, sn:sc, dsi:Math.floor((now-inst)/86400000),
-    platform:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'mobile':'desktop', ref:(document.referrer||'').slice(0,120) });
+    platform:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'mobile':'desktop', ref:(document.referrer||'').slice(0,120),
+    src:(function(){ try{ return new URLSearchParams(location.search).get('r')||''; }catch(e){ return ''; } })() });   // src='clip' when opened from a shared card
 }catch(e){} })();
 let lbBoard='daily', lbOpenFlag=false;
 function lbOn(){ return !!(LB.url&&LB.key); }
@@ -1516,7 +1527,7 @@ function buildShareCard(){ const W=1080,H=1350,c=document.createElement('canvas'
 function showClipPanel(){ const p=document.getElementById('clipPanel'); if(p)p.style.display='flex'; }
 function hideClipPanel(){ const p=document.getElementById('clipPanel'); if(p)p.style.display='none'; }
 function shareClip(){ if(!clipBlob)return; track('clip_share',{label:clipLabel,dist:clipDist}); const f=new File([clipBlob],'emberrun-'+clipDist+'m.png',{type:'image/png'});
-  const data={files:[f],title:'Ember Run',text:clipDist+'m in Ember Run — '+clipLabel+'. play: jpcrewse.github.io/emberwane-run'};
+  const data={files:[f],title:'Ember Run',text:clipDist+'m in Ember Run — '+clipLabel+'. play: jpcrewse.github.io/emberwane-run/?r=clip'};   // ?r=clip → measurable install/session source
   try{ if(navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share(data).catch(function(){}); return; } }catch(e){} saveClip(); }
 function saveClip(){ if(!clipURL)return; track('clip_save',{label:clipLabel,dist:clipDist}); const a=document.createElement('a'); a.href=clipURL; a.download='emberrun-'+clipDist+'m.png'; document.body.appendChild(a); a.click(); a.remove(); }
 function lbSubmitRun(dm){ if(!lbOn()||!rec.handle)return; lbSubmit('alltime',dm,depth); if(dailyMode)lbSubmit(lbDailyBoard(),dm,depth); lbSubmit('embers',embersRun,depth); }   // distance + most-embers-in-a-run
@@ -1615,6 +1626,12 @@ document.getElementById('closeShop').onclick=closeShop;
   if(!LEAN.shopUpgrades){ const t=document.querySelector('#shop .tab[data-tab="upg"]'); if(t)t.style.display='none'; }
   if(!LEAN.shopEternal){ const t=document.querySelector('#shop .tab[data-tab="eternal"]'); if(t)t.style.display='none'; }
   shopTab='chars'; }
+let deferredInstall=null;   // STAGE 4: PWA install nudge after a few runs (non-intrusive)
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferredInstall=e; });
+function maybeInstallNudge(){ if(deferredInstall && (rec.runs||0)>=3 && !rec.installNudged){ const n=document.getElementById('installNudge'); if(n)n.style.display='flex'; } }
+{ const iy=document.getElementById('instYes'), ino=document.getElementById('instNo'), n=document.getElementById('installNudge');
+  if(iy)iy.onclick=function(){ if(n)n.style.display='none'; rec.installNudged=true; saveRec(); if(deferredInstall){ deferredInstall.prompt(); try{ deferredInstall.userChoice.then(function(c){ track('install_prompt',{action:(c&&c.outcome==='accepted')?'installed':'declined'}); }); }catch(e){} deferredInstall=null; } else track('install_prompt',{action:'accept'}); };
+  if(ino)ino.onclick=function(){ if(n)n.style.display='none'; rec.installNudged=true; saveRec(); track('install_prompt',{action:'dismiss'}); }; }
 document.querySelectorAll('#shop .tab').forEach(t=>t.onclick=()=>{ shopTab=t.dataset.tab; renderShop(); });
 
 /* ---- loop / fit ---- */
